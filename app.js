@@ -465,10 +465,18 @@
                     key,
                     program,
                     count: 0,
-                    faculty: facultyRows.map(facultyInfo)
+                    faculty: facultyRows.map(facultyInfo),
+                    students: []
                 });
             }
-            grouped.get(key).count += 1;
+            const group = grouped.get(key);
+            group.count += 1;
+            group.students.push({
+                name: cleanCell(get(record, ["Participant", "Name"], 0)) || "Unknown student",
+                id: participantExternalId(record, 8),
+                status: cleanCell(get(record, ["Status"], 2)),
+                checkIn: cleanCell(get(record, ["Check in", "Check-in", "Check In"], 5))
+            });
         });
         return Array.from(grouped.values()).sort((a, b) => {
             if (b.count !== a.count)
@@ -844,6 +852,7 @@
                 return pieces.length ? pieces.join(" • ") : "N/A";
             }).join("; ")
             : "No matching faculty contact";
+        const detailsId = `students-${canon(group.key)}`;
         return `
       <tr>
         <td>
@@ -855,7 +864,21 @@
         <td>${escapeHtml(group.program)}</td>
         <td>${escapeHtml(facultyText)}</td>
         <td><strong>${escapeHtml(group.count)}</strong></td>
+      </tr>
+      <tr class="faculty-student-details-row">
+        <td colspan="4">
+          <details class="faculty-student-details">
+            <summary aria-controls="${escapeHtml(detailsId)}">Show ${escapeHtml(group.count)} unreported student${group.count === 1 ? "" : "s"}</summary>
+            <ul id="${escapeHtml(detailsId)}" class="faculty-student-list">
+              ${group.students.map(renderUnreportedStudent).join("")}
+            </ul>
+          </details>
+        </td>
       </tr>`;
+    }
+    function renderUnreportedStudent(student) {
+        const meta = [student.id ? `ID ${student.id}` : "", student.status, student.checkIn ? `check-in ${student.checkIn}` : ""].filter(Boolean).join(" • ");
+        return `<li><span>${escapeHtml(student.name)}</span>${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</li>`;
     }
     function renderStudentCard(student) {
         return `

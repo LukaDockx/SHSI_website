@@ -12,7 +12,7 @@ A static, browser-only replacement for `oldpythoncode.py`.
 2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh.
 3. Press **Review faculty submissions**.
 4. Review the separate **2. Faculty attendance review** section to see which programs still have blank Attendance Status cells and how many students are unreported.
-5. Leave a program checked to generate sheets for its blank/unreported students, or uncheck it to treat those blank rows as all present for sheet generation.
+5. Expand any faculty/program row to see the unreported student names. Leave the program checked to generate sheets for its blank/unreported students, or uncheck it to treat those blank rows as all present for sheet generation.
 6. Press **Generate attendance check sheets** at the bottom of the faculty section; sheets then appear in **3. Reports**.
 7. Review the generated attendance check sheets in the page.
 8. Press **Export/Print PDF** and choose **Save as PDF** in the browser print dialog. The print stylesheet formats each student needing a check as one Letter-size attendance check sheet.
@@ -34,7 +34,7 @@ The screen report is optimized for review. The PDF/print version is intentionall
 - one student per Letter-size page
 - page header: **Attendance Check Sheet**
 - sections: student/current check, roommate information, parent/guardian contacts, yesterday evening housing check, and faculty contact
-- **2. Faculty attendance review** is its own website section with per-program sheet-generation checkboxes and is hidden in the per-student PDF
+- **2. Faculty attendance review** is its own website section with per-program sheet-generation checkboxes and expandable unreported-student lists; it is hidden in the per-student PDF
 - **3. Reports** contains sheet-generation status, generated sheets, and PDF export
 - app controls, warnings, and summary cards are hidden in the PDF
 

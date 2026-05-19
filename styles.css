@@ -86,6 +86,13 @@ button.danger { color: var(--danger); }
 .faculty-status-table td:last-child, .faculty-status-table th:last-child { text-align: right; }
 .faculty-checkbox-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; cursor: pointer; }
 .faculty-checkbox-label input { width: 18px; height: 18px; accent-color: var(--brand); }
+.faculty-student-details-row td { padding-top: 0; background: #fcfcfd; }
+.faculty-student-details { margin: 0 0 4px 140px; }
+.faculty-student-details summary { cursor: pointer; color: var(--brand); font-weight: 800; padding: 8px 0; }
+.faculty-student-list { margin: 4px 0 10px; padding: 0; list-style: none; columns: 2; column-gap: 28px; }
+.faculty-student-list li { break-inside: avoid; padding: 4px 0; border-bottom: 1px solid #eef1f7; }
+.faculty-student-list span { font-weight: 700; }
+.faculty-student-list small { display: block; color: var(--muted); margin-top: 1px; }
 .faculty-actions { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .faculty-actions p { margin: 0; flex: 1; min-width: 260px; }
 .student-card { background: #fff; border: 1px solid #cfd7e8; border-radius: 18px; box-shadow: var(--shadow); padding: 22px; margin: 18px 0; break-inside: avoid; page-break-inside: avoid; }
@@ -117,6 +124,8 @@ footer { color: var(--muted); font-size: 13px; }
   .app-header, main, footer { padding: 16px; }
   .upload-grid, .summary-grid { grid-template-columns: 1fr; }
   .panel-heading, .actions, .report-toolbar, .workflow-heading, .report-section-header { flex-direction: column; align-items: stretch; }
+  .faculty-student-details { margin-left: 0; }
+  .faculty-student-list { columns: 1; }
   .info-row { grid-template-columns: 1fr; }
 }
 
