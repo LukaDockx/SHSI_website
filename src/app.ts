@@ -1,5 +1,5 @@
 // @ts-nocheck
-/* Missing Student Finder
+/* Attendance Checker
  * Browser-only port/rebuild of oldpythoncode.py.
  * No network calls are made; uploaded CSV text is stored only in localStorage.
  */
@@ -660,7 +660,7 @@
 
   function renderMessagesForReport(report) {
     const messages = [];
-    messages.push({ type: "ok", text: `Report generated: ${report.students.length} missing student record(s).` });
+    messages.push({ type: "ok", text: `Report generated: ${report.students.length} attendance check sheet(s).` });
     if (report.diagnostics.presentNotCheckedIn.length) {
       messages.push({ type: "warn", text: `Present but checked out/not checked in: ${report.diagnostics.presentNotCheckedIn.join(", ")}.` });
     }
@@ -681,8 +681,8 @@
     if (!report.students.length) {
       reportElement.innerHTML = `
         <div class="report-empty">
-          <h2>2. Missing student report</h2>
-          <p>No missing students were found after applying the current filters.</p>
+          <h2>2. Attendance check report</h2>
+          <p>No students needing an attendance check were found after applying the current filters.</p>
         </div>`;
       return;
     }
@@ -690,16 +690,16 @@
     reportElement.innerHTML = `
       <div class="report-toolbar">
         <div>
-          <h2>2. Missing student report</h2>
-          <p>One investigation sheet is generated per student. Use Export/Print PDF to create one Letter-size page per student.</p>
+          <h2>2. Attendance check report</h2>
+          <p>One attendance check sheet is generated per student. Use Export/Print PDF to create one Letter-size page per student.</p>
         </div>
         <button type="button" onclick="window.print()">Export/Print PDF</button>
       </div>
       <div class="summary-grid">
-        ${summaryCard(report.students.length, "Missing student sheets")}
+        ${summaryCard(report.students.length, "Attendance check sheets")}
         ${summaryCard(report.diagnostics.todayRows, "Today CSV data rows")}
         ${summaryCard(report.diagnostics.activeActivityRows, "Active activity rows checked")}
-        ${summaryCard(report.diagnostics.unspecifiedRows, "Unspecified attendance rows")}
+        ${summaryCard(report.diagnostics.unspecifiedRows, "Unspecified check rows")}
       </div>
       ${report.students.map(renderStudentCard).join("")}`;
   }
@@ -711,7 +711,7 @@
   function renderStudentCard(student) {
     return `
       <article class="student-card">
-        <div class="sheet-kicker">Missing Student Investigation Sheet</div>
+        <div class="sheet-kicker">Attendance Check Sheet</div>
         <div class="sheet-topline">
           <div>
             <h3>${escapeHtml(student.fullName || "Unknown student")}</h3>
@@ -719,7 +719,7 @@
           </div>
           <div class="sheet-id">${student.id ? `Pacific ID ${escapeHtml(student.id)}` : "No Pacific ID"}</div>
         </div>
-        ${section("Student identity and current attendance", [
+        ${section("Student identity and current check", [
           row("Name", student.fullName),
           row("Gender", student.gender),
           row("Student phone", student.studentPhone),
@@ -729,7 +729,7 @@
           row("Housing assignment", student.house),
           row("Room", student.room),
           row("Enrollment status", student.status),
-          row("Attendance status", student.attendanceStatus),
+          row("Current check status", student.attendanceStatus),
           row("Check-in time", student.checkIn),
           row("Check-out time", student.checkOut)
         ])}
@@ -746,7 +746,7 @@
         ${section("Yesterday evening housing check", [
           row("Date", student.yesterday.date),
           row("Housing status", student.yesterday.status),
-          row("Attendance status", student.yesterday.attendanceStatus),
+          row("Housing check status", student.yesterday.attendanceStatus),
           row("House/program", student.yesterday.program),
           row("Check-in time", student.yesterday.checkIn),
           row("Check-out time", student.yesterday.checkOut)
@@ -769,7 +769,7 @@
         ${row("Name", roommate.name)}
         ${row("House", roommate.house)}
         ${row("Room", roommate.room)}
-        <div class="info-row"><span class="label">Attendance status</span><span class="value"><span class="badge ${roommate.status === "Absent" ? "absent" : "present"}">${escapeHtml(roommate.status)}</span></span></div>
+        <div class="info-row"><span class="label">Check status</span><span class="value"><span class="badge ${roommate.status === "Absent" ? "absent" : "present"}">${escapeHtml(roommate.status)}</span></span></div>
         ${row("Program", roommate.program)}
         ${row("Phone number", roommate.phone)}
       </div>`).join("")}</div>`;

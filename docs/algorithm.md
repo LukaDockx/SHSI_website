@@ -1,4 +1,4 @@
-# Missing Student Finder algorithm
+# Attendance Checker algorithm
 
 This document describes the browser implementation in `src/app.ts` / `app.js`.
 
@@ -22,7 +22,7 @@ For each CSV:
 - Program date suffixes such as `, Jun 2, 2025...` are stripped.
 - Column names are matched by normalized aliases first, then by the fallback column positions used by the historical Python script.
 
-## Missing-student selection
+## Attendance check selection
 
 Let `todayRows` be today's attendance rows after normalization.
 
@@ -30,13 +30,13 @@ Let `todayRows` be today's attendance rows after normalization.
 2. Warn about rows where `Status` is `Checked out` or `Not checked in` but `Attendance Status` is `Present`.
 3. Remove rows whose `Status` is `Checked out` or `Not checked in`.
 4. Optionally remove rows whose `Attendance Status` is blank.
-5. Mark as missing every remaining row whose `Attendance Status` is not exactly `Present` or `Late`.
+5. Mark for an attendance check every remaining row whose `Attendance Status` is not exactly `Present` or `Late`.
 
-This intentionally preserves the old script's conservative rule: any non-present/non-late status, including blank status when the setting is enabled, requires investigation.
+This intentionally preserves the old script's conservative rule: any non-present/non-late status, including blank status when the setting is enabled, requires an attendance check.
 
 ## Data enrichment
 
-For each missing attendance row:
+For each attendance row that needs a check:
 
 - Match database rows by `Participant external ID` / Pacific ID.
 - Split database rows into housing rows and activity rows using the editable housing list.
@@ -52,8 +52,8 @@ For `n` today's rows, `m` database rows, `y` yesterday rows, and `f` faculty row
 
 - CSV parsing is linear in file size.
 - Row normalization is `O(n + m + y + f)`.
-- ID lookups use maps, so student enrichment is approximately `O(k + m)` where `k` is the number of missing students.
-- Roommate lookup currently scans housing rows for each missing student, `O(kh)` where `h` is the number of housing rows. This is acceptable for summer-program scale; if the roster grows significantly, index housing rows by room stem to make it `O(k + h)`.
+- ID lookups use maps, so student enrichment is approximately `O(k + m)` where `k` is the number of students needing an attendance check.
+- Roommate lookup currently scans housing rows for each student needing an attendance check, `O(kh)` where `h` is the number of housing rows. This is acceptable for summer-program scale; if the roster grows significantly, index housing rows by room stem to make it `O(k + h)`.
 
 ## Error sources and limitations
 
