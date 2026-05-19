@@ -60,10 +60,6 @@
 
       <details class="settings">
         <summary>Settings and program lists</summary>
-        <label class="checkbox-row">
-          <input id="includeUnspecified" type="checkbox" checked />
-          Include records where faculty has not specified Present/Late/Absent yet
-        </label>
         <p class="muted">The old script used hard-coded housing/program names. You can edit them here for a new year. Lists are saved in this browser.</p>
         <div class="settings-grid">
           <label>
@@ -79,17 +75,25 @@
       </details>
 
       <div class="actions">
-        <button id="runButton" type="button">Run attendance check report</button>
-        <button id="printButton" type="button" class="secondary" disabled>Export/Print PDF</button>
+        <button id="runButton" type="button">Review faculty submissions</button>
       </div>
     </section>
 
     <section id="messages" class="messages" aria-live="polite"></section>
 
-    <section id="report" class="report" aria-labelledby="report-heading">
-      <div class="report-empty">
-        <h2 id="report-heading">2. Report</h2>
-        <p>Upload the four CSV files and press Run. Attendance check sheets will appear here.</p>
+    <section id="report" class="report" aria-labelledby="faculty-review-heading">
+      <div class="workflow-section disabled-section">
+        <h2 id="faculty-review-heading">2. Faculty attendance review</h2>
+        <p>Upload the four CSV files, then press Review faculty submissions.</p>
+      </div>
+      <div class="workflow-section disabled-section">
+        <div class="report-section-header">
+          <div>
+            <h2>3. Reports</h2>
+            <p>Attendance check sheets will appear here after faculty review.</p>
+          </div>
+          <button id="printButton" type="button" class="secondary" disabled>Export/Print PDF</button>
+        </div>
       </div>
     </section>
   </main>

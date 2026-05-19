@@ -100,14 +100,15 @@
     };
     const state = {
         files: loadStoredFiles(),
-        lastReport: null
+        lastReport: null,
+        lastInputOptions: null,
+        sheetsGenerated: false
     };
     document.addEventListener("DOMContentLoaded", init);
     function init() {
         setupDropZones();
         setupLists();
         byId("runButton").addEventListener("click", runReportFromUi);
-        byId("printButton").addEventListener("click", () => window.print());
         byId("clearAllButton").addEventListener("click", clearStoredData);
         byId("resetListsButton").addEventListener("click", resetProgramLists);
         updateFileStatuses();
@@ -117,6 +118,27 @@
         if (!element)
             throw new Error(`Missing element #${id}`);
         return element;
+    }
+    function setPrintDisabled(disabled) {
+        const button = document.getElementById("printButton");
+        if (button)
+            button.disabled = disabled;
+    }
+    function renderInitialReportPlaceholders(message) {
+        byId("report").innerHTML = `
+      <div class="workflow-section disabled-section">
+        <h2>2. Faculty attendance review</h2>
+        <p>${escapeHtml(message || "Upload the four CSV files, then press Review faculty submissions.")}</p>
+      </div>
+      <div class="workflow-section disabled-section">
+        <div class="report-section-header">
+          <div>
+            <h2>3. Reports</h2>
+            <p>Attendance check sheets will appear here after faculty review.</p>
+          </div>
+          <button id="printButton" type="button" class="secondary" disabled>Export/Print PDF</button>
+        </div>
+      </div>`;
     }
     function setupDropZones() {
         document.querySelectorAll(".drop-zone").forEach((zone) => {
@@ -162,6 +184,10 @@
                 updatedAt: new Date().toISOString(),
                 text: String(reader.result || "")
             };
+            state.lastInputOptions = null;
+            state.lastReport = null;
+            state.sheetsGenerated = false;
+            setPrintDisabled(true);
             const ok = saveStoredFiles();
             updateFileStatuses();
             showMessages(ok ? [{ type: "ok", text: `${FILES[key].label} loaded.` }] : [{ type: "warn", text: `${FILES[key].label} loaded for this session, but localStorage could not save it. The file may be too large for this browser.` }]);
@@ -205,10 +231,12 @@
             return;
         state.files = {};
         state.lastReport = null;
+        state.lastInputOptions = null;
+        state.sheetsGenerated = false;
         localStorage.removeItem(STORAGE_KEY);
         updateFileStatuses();
-        byId("printButton").disabled = true;
-        byId("report").innerHTML = `<div class="report-empty"><h2>2. Report</h2><p>Stored CSV data was cleared.</p></div>`;
+        setPrintDisabled(true);
+        renderInitialReportPlaceholders("Stored CSV data was cleared. Upload the four CSV files, then press Review faculty submissions.");
         showMessages([{ type: "ok", text: "Stored CSV data cleared." }]);
     }
     function setupLists() {
@@ -233,6 +261,10 @@
     function saveProgramListsFromUi() {
         const lists = currentProgramLists();
         localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+        state.lastInputOptions = null;
+        state.lastReport = null;
+        state.sheetsGenerated = false;
+        setPrintDisabled(true);
     }
     function resetProgramLists() {
         if (!confirm("Reset the editable housing/activity lists to the defaults from the old Python script?"))
@@ -251,28 +283,64 @@
         return String(text || "").split(/\r?\n/).map(cleanCell).filter(Boolean);
     }
     function runReportFromUi() {
-        const missing = Object.keys(FILES).filter((key) => !(state.files[key] && state.files[key].text));
-        if (missing.length) {
-            showMessages([{ type: "error", text: `Missing required file(s): ${missing.map((key) => FILES[key].label).join(", ")}.` }]);
+        const inputOptions = currentInputOptions();
+        if (!inputOptions)
             return;
-        }
         try {
             const report = buildReport({
-                todayText: state.files.today.text,
-                yesterdayText: state.files.yesterday.text,
-                databaseText: state.files.database.text,
-                facultyText: state.files.faculty.text,
-                includeUnspecified: byId("includeUnspecified").checked,
-                programLists: currentProgramLists()
+                ...inputOptions,
+                suppressedUnsubmittedProgramKeys: []
             });
+            state.lastInputOptions = inputOptions;
             state.lastReport = report;
-            renderReport(report);
+            state.sheetsGenerated = false;
+            renderReport(report, { showSheets: false });
             renderMessagesForReport(report);
-            byId("printButton").disabled = report.students.length === 0;
+            setPrintDisabled(true);
         }
         catch (error) {
             console.error(error);
-            byId("printButton").disabled = true;
+            setPrintDisabled(true);
+            showMessages([{ type: "error", text: error && error.message ? error.message : String(error) }]);
+        }
+    }
+    function currentInputOptions() {
+        const missing = Object.keys(FILES).filter((key) => !(state.files[key] && state.files[key].text));
+        if (missing.length) {
+            showMessages([{ type: "error", text: `Missing required file(s): ${missing.map((key) => FILES[key].label).join(", ")}.` }]);
+            return null;
+        }
+        return {
+            todayText: state.files.today.text,
+            yesterdayText: state.files.yesterday.text,
+            databaseText: state.files.database.text,
+            facultyText: state.files.faculty.text,
+            programLists: currentProgramLists()
+        };
+    }
+    function generateSheetsFromFacultySelections() {
+        if (!state.lastInputOptions) {
+            runReportFromUi();
+            return;
+        }
+        const suppressedUnsubmittedProgramKeys = Array.from(document.querySelectorAll(".faculty-generate-checkbox"))
+            .filter((checkbox) => !checkbox.checked)
+            .map((checkbox) => checkbox.getAttribute("data-program-key"))
+            .filter(Boolean);
+        try {
+            const report = buildReport({
+                ...state.lastInputOptions,
+                suppressedUnsubmittedProgramKeys
+            });
+            state.lastReport = report;
+            state.sheetsGenerated = true;
+            renderReport(report, { showSheets: true, suppressedUnsubmittedProgramKeys });
+            renderMessagesForReport(report);
+            setPrintDisabled(report.students.length === 0);
+        }
+        catch (error) {
+            console.error(error);
+            setPrintDisabled(true);
             showMessages([{ type: "error", text: error && error.message ? error.message : String(error) }]);
         }
     }
@@ -305,8 +373,14 @@
             return status !== "Checked out" && status !== "Not checked in";
         });
         const unspecified = activeToday.filter((record) => !cleanCell(get(record, ["Attendance Status"], 3)));
-        if (!options.includeUnspecified)
-            activeToday = activeToday.filter((record) => cleanCell(get(record, ["Attendance Status"], 3)));
+        const suppressedUnsubmittedProgramKeys = new Set(options.suppressedUnsubmittedProgramKeys || []);
+        activeToday = activeToday.filter((record) => {
+            const attendance = cleanCell(get(record, ["Attendance Status"], 3));
+            if (attendance)
+                return true;
+            const programKey = canonProgram(stripProgramDate(programOf(record)) || "Unknown program");
+            return !suppressedUnsubmittedProgramKeys.has(programKey);
+        });
         const absentRows = activeToday.filter((record) => {
             const attendance = cleanCell(get(record, ["Attendance Status"], 3));
             return attendance !== "Present" && attendance !== "Late";
@@ -388,6 +462,7 @@
             if (!grouped.has(key)) {
                 const facultyRows = facultyByProgram.get(key) || [];
                 grouped.set(key, {
+                    key,
                     program,
                     count: 0,
                     faculty: facultyRows.map(facultyInfo)
@@ -675,32 +750,55 @@
     function showMessages(messages) {
         byId("messages").innerHTML = messages.map((message) => `<div class="message ${escapeAttr(message.type)}">${escapeHtml(message.text)}</div>`).join("");
     }
-    function renderReport(report) {
+    function renderReport(report, options = {}) {
         const reportElement = byId("report");
-        const sheetMarkup = report.students.length
-            ? report.students.map(renderStudentCard).join("")
-            : `<div class="report-empty"><h2>Attendance check sheets</h2><p>No students needing an attendance check were found after applying the current filters.</p></div>`;
+        const showSheets = Boolean(options.showSheets);
+        const sheetMarkup = showSheets
+            ? (report.students.length
+                ? report.students.map(renderStudentCard).join("")
+                : `<div class="report-empty"><p>No students needing an attendance check were found after applying the current filters.</p></div>`)
+            : `<div class="report-empty"><p>Sheets not generated yet. Use the checkboxes in Step 2, then press Generate attendance check sheets.</p></div>`;
         reportElement.innerHTML = `
-      <div class="report-toolbar">
-        <div>
-          <h2>2. Attendance check report</h2>
-          <p>First review faculty submission status, then print one Letter-size attendance check sheet per student if needed.</p>
+      <section class="workflow-section faculty-review-section" aria-labelledby="faculty-review-heading">
+        <div class="workflow-heading">
+          <div>
+            <h2 id="faculty-review-heading">2. Faculty attendance review</h2>
+            <p>Uncheck a faculty/program row to treat those blank attendance cells as a reporting mistake and skip sheets for those students.</p>
+          </div>
         </div>
-        <button type="button" onclick="window.print()" ${report.students.length ? "" : "disabled"}>Export/Print PDF</button>
-      </div>
-      <div class="summary-grid">
-        ${summaryCard(report.students.length, "Attendance check sheets")}
-        ${summaryCard(report.diagnostics.todayRows, "Today CSV data rows")}
-        ${summaryCard(report.diagnostics.activeActivityRows, "Active activity rows checked")}
-        ${summaryCard(report.diagnostics.unspecifiedRows, "Students not yet reported")}
-      </div>
-      ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows)}
-      ${sheetMarkup}`;
+        <div class="summary-grid faculty-summary-grid">
+          ${summaryCard(report.diagnostics.todayRows, "Today CSV data rows")}
+          ${summaryCard(report.diagnostics.activeActivityRows, "Active activity rows checked")}
+          ${summaryCard(report.diagnostics.unspecifiedRows, "Students not yet reported")}
+        </div>
+        ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows, options.suppressedUnsubmittedProgramKeys || [])}
+      </section>
+
+      <section class="workflow-section reports-section ${showSheets ? "" : "disabled-section"}" aria-labelledby="reports-heading">
+        <div class="report-section-header workflow-heading">
+          <div>
+            <h2 id="reports-heading">3. Reports</h2>
+            <p>${showSheets ? "Review the generated sheets, then export/print them as a PDF." : "Generate attendance check sheets from Step 2 before exporting."}</p>
+          </div>
+          <button id="printButton" type="button" class="secondary" onclick="window.print()" ${showSheets && report.students.length ? "" : "disabled"}>Export/Print PDF</button>
+        </div>
+        ${showSheets ? `<div class="summary-grid reports-summary-grid">${summaryCard(report.students.length, "Generated attendance check sheets")}</div>` : ""}
+        ${sheetMarkup}
+      </section>`;
+        const generateButton = document.getElementById("generateSheetsButton");
+        if (generateButton)
+            generateButton.addEventListener("click", generateSheetsFromFacultySelections);
     }
     function summaryCard(number, label) {
         return `<div class="summary-card"><strong>${escapeHtml(number)}</strong><span>${escapeHtml(label)}</span></div>`;
     }
-    function renderFacultySubmissionStatus(groups, totalUnreported) {
+    function renderFacultySubmissionStatus(groups, totalUnreported, suppressedKeys = []) {
+        const suppressed = new Set(suppressedKeys || []);
+        const action = `
+      <div class="faculty-actions">
+        <button id="generateSheetsButton" type="button">Generate attendance check sheets</button>
+        <p class="muted">Checked rows generate sheets for blank/unreported students. Unchecked rows are treated as all present for sheet generation.</p>
+      </div>`;
         if (!groups.length) {
             return `
         <section class="faculty-status-panel all-submitted" aria-labelledby="faculty-status-heading">
@@ -709,6 +807,7 @@
             <p>All active activity rows have an Attendance Status value.</p>
           </div>
           <strong>0 students unreported</strong>
+          ${action}
         </section>`;
         }
         return `
@@ -724,19 +823,21 @@
           <table class="faculty-status-table">
             <thead>
               <tr>
+                <th>Generate sheets?</th>
                 <th>Program</th>
                 <th>Faculty / contact</th>
                 <th>Students not reported present/absent</th>
               </tr>
             </thead>
             <tbody>
-              ${groups.map(renderFacultySubmissionRow).join("")}
+              ${groups.map((group) => renderFacultySubmissionRow(group, !suppressed.has(group.key))).join("")}
             </tbody>
           </table>
         </div>
+        ${action}
       </section>`;
     }
-    function renderFacultySubmissionRow(group) {
+    function renderFacultySubmissionRow(group, checked) {
         const facultyText = group.faculty.length
             ? group.faculty.map((faculty) => {
                 const pieces = [faculty.faculty, faculty.contact, faculty.phone].map(cleanCell).filter((value) => value && value !== "N/A");
@@ -745,6 +846,12 @@
             : "No matching faculty contact";
         return `
       <tr>
+        <td>
+          <label class="faculty-checkbox-label">
+            <input class="faculty-generate-checkbox" type="checkbox" data-program-key="${escapeHtml(group.key)}" ${checked ? "checked" : ""} />
+            <span>Yes</span>
+          </label>
+        </td>
         <td>${escapeHtml(group.program)}</td>
         <td>${escapeHtml(facultyText)}</td>
         <td><strong>${escapeHtml(group.count)}</strong></td>

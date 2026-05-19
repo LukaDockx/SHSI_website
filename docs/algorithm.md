@@ -24,7 +24,7 @@ For each CSV:
 
 ## Faculty submission-status check
 
-Before generating student sheets, active non-housing rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. The faculty contacts CSV is joined on program name so the page can show which faculty/contact has not submitted attendance yet and how many students are still unreported for that program. This grouping is computed before the optional `includeUnspecified` filter so the morning status panel remains useful even if blank rows are excluded from the printed check sheets.
+Before generating student sheets, active non-housing rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. The faculty contacts CSV is joined on program name so the page can show which faculty/contact has not submitted attendance yet and how many students are still unreported for that program. Each grouped program gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
 
 ## Attendance check selection
 
@@ -33,7 +33,7 @@ Let `todayRows` be today's attendance rows after normalization.
 1. Remove rows whose program is in the housing list.
 2. Warn about rows where `Status` is `Checked out` or `Not checked in` but `Attendance Status` is `Present`.
 3. Remove rows whose `Status` is `Checked out` or `Not checked in`.
-4. Optionally remove rows whose `Attendance Status` is blank.
+4. Remove blank-status rows only for faculty/program groups the user unchecked in the faculty submission-status section.
 5. Mark for an attendance check every remaining row whose `Attendance Status` is not exactly `Present` or `Late`.
 
 This intentionally preserves the old script's conservative rule: any non-present/non-late status, including blank status when the setting is enabled, requires an attendance check.

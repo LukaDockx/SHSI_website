@@ -64,6 +64,13 @@ button.danger { color: var(--danger); }
 .summary-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
 .summary-card strong { display: block; font-size: 28px; }
 .summary-card span { color: var(--muted); font-size: 13px; }
+.workflow-section { background: #fff; border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); padding: 22px; margin: 18px 0; }
+.workflow-section.disabled-section { background: rgba(248, 250, 252, .78); border-style: dashed; box-shadow: none; color: var(--muted); }
+.workflow-section.disabled-section h2 { color: #475467; }
+.workflow-heading, .report-section-header { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 16px; }
+.workflow-heading p, .report-section-header p { margin: 0; color: var(--muted); }
+.faculty-summary-grid { grid-template-columns: repeat(3, 1fr); }
+.reports-summary-grid { grid-template-columns: minmax(180px, 280px); }
 .faculty-status-panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 18px; margin: 0 0 22px; }
 .faculty-status-panel h3 { margin: 0 0 6px; font-size: 22px; }
 .faculty-status-panel p { margin: 0; color: var(--muted); }
@@ -74,8 +81,13 @@ button.danger { color: var(--danger); }
 .faculty-table-wrap { overflow-x: auto; }
 .faculty-status-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .faculty-status-table th, .faculty-status-table td { text-align: left; border-top: 1px solid var(--line); padding: 10px 8px; vertical-align: top; }
+.faculty-status-table th:first-child, .faculty-status-table td:first-child { width: 132px; }
 .faculty-status-table th { color: #344054; background: #f8fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .faculty-status-table td:last-child, .faculty-status-table th:last-child { text-align: right; }
+.faculty-checkbox-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; cursor: pointer; }
+.faculty-checkbox-label input { width: 18px; height: 18px; accent-color: var(--brand); }
+.faculty-actions { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.faculty-actions p { margin: 0; flex: 1; min-width: 260px; }
 .student-card { background: #fff; border: 1px solid #cfd7e8; border-radius: 18px; box-shadow: var(--shadow); padding: 22px; margin: 18px 0; break-inside: avoid; page-break-inside: avoid; }
 .student-card h3 { margin: 0 0 4px; font-size: 24px; }
 .student-card .subline { color: var(--muted); margin: 0 0 18px; }
@@ -104,7 +116,7 @@ footer { color: var(--muted); font-size: 13px; }
 @media (max-width: 560px) {
   .app-header, main, footer { padding: 16px; }
   .upload-grid, .summary-grid { grid-template-columns: 1fr; }
-  .panel-heading, .actions, .report-toolbar { flex-direction: column; align-items: stretch; }
+  .panel-heading, .actions, .report-toolbar, .workflow-heading, .report-section-header { flex-direction: column; align-items: stretch; }
   .info-row { grid-template-columns: 1fr; }
 }
 
@@ -115,6 +127,8 @@ footer { color: var(--muted); font-size: 13px; }
   .app-header, .controls-panel, .messages, footer, .report-toolbar, .summary-grid, .faculty-status-panel, .report-empty { display: none !important; }
   main { max-width: none; padding: 0; margin: 0; }
   .report { margin: 0; }
+  .workflow-section { box-shadow: none; border: 0; padding: 0; margin: 0; background: transparent; }
+  .workflow-heading, .reports-summary-grid { display: none !important; }
 
   /*
    * The printed report is intentionally denser than the screen view.
