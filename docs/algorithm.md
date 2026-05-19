@@ -38,6 +38,10 @@ Let `todayRows` be today's attendance rows after normalization.
 
 This intentionally preserves the old script's conservative rule: any non-present/non-late status, including blank status when the setting is enabled, requires an attendance check.
 
+## Jumbula cleanup issues
+
+Rows where `Attendance Status` is `Present` but `Status` is `Checked out` or `Not checked in` are excluded from sheet generation and displayed in a website-only cleanup section. These are usually data-entry/state conflicts to fix directly in Jumbula.
+
 ## Data enrichment
 
 For each attendance row that needs a check:
@@ -48,7 +52,7 @@ For each attendance row that needs a check:
 - Pull gender, student phone, parent/guardian details, and all enrolled programs from matching activity rows.
 - Match yesterday's housing attendance by external ID, with participant name as a fallback.
 - Match faculty contacts by current activity/program.
-- Find roommates by comparing the room stem (old behavior: drop the final room character, usually the bed suffix) among housing rows.
+- Find roommates by comparing the room stem (old behavior: drop the final room character, usually the bed suffix) among housing rows. Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
 
 ## Complexity
 

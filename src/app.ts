@@ -388,6 +388,8 @@
       const attendance = cleanCell(get(record, ["Attendance Status"], 3));
       return (status === "Checked out" || status === "Not checked in") && attendance === "Present";
     });
+    const presentButCheckedOutIssues = presentNotCheckedIn.map(cleanupIssueInfo);
+    const todayActivityById = groupById(todayNonHousing, 8);
 
     let activeToday = todayNonHousing.filter((record) => {
       const status = cleanCell(get(record, ["Status"], 2));
@@ -437,7 +439,7 @@
 
       const room = housingRow ? roomOf(housingRow) : "";
       const house = housingRow ? houseOf(housingRow) : "";
-      const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, absentNames, selfId: id }) : [];
+      const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, todayActivityById, absentNames, selfId: id }) : [];
 
       return {
         id,
@@ -473,9 +475,22 @@
         absentRows: absentRows.length,
         unspecifiedRows: unspecified.length,
         unsubmittedAttendance,
-        presentNotCheckedIn: presentNotCheckedIn.map((record) => cleanCell(get(record, ["Participant", "Name"], 0))).filter(Boolean),
+        presentButCheckedOutIssues,
+        presentNotCheckedIn: presentButCheckedOutIssues.map((issue) => issue.name).filter(Boolean),
         unknownPrograms
       }
+    };
+  }
+
+  function cleanupIssueInfo(record) {
+    return {
+      name: cleanCell(get(record, ["Participant", "Name"], 0)) || "Unknown student",
+      id: participantExternalId(record, 8),
+      program: stripProgramDate(programOf(record)) || "Unknown program",
+      status: cleanCell(get(record, ["Status"], 2)),
+      attendanceStatus: cleanCell(get(record, ["Attendance Status"], 3)),
+      checkIn: cleanCell(get(record, ["Check in", "Check-in", "Check In"], 5)),
+      checkOut: cleanCell(get(record, ["Check out", "Check-out", "Check Out"], 6))
     };
   }
 
@@ -627,11 +642,49 @@
           name,
           house: houseOf(candidate),
           room: roomOf(candidate),
-          status: context.absentNames.has(name.toLowerCase()) ? "Absent" : "Present or checked out",
+          status: roommateAttendanceStatus({
+            id,
+            name,
+            todayActivityById: context.todayActivityById,
+            absentNames: context.absentNames
+          }),
           program: activity ? stripProgramDate(programOf(activity)) : "",
           phone: activity ? phoneLike(get(activity, ["Student phone", "Participant phone", "Phone", "Phone number"], 5)) : ""
         };
       });
+  }
+
+  function roommateAttendanceStatus(context) {
+    const rows = (context.todayActivityById && context.todayActivityById.get(context.id)) || [];
+    const absentBySheetLogic = context.absentNames && context.absentNames.has(cleanCell(context.name).toLowerCase());
+
+    if (!rows.length) return absentBySheetLogic ? "Needs attendance check" : "No current activity row found";
+
+    const checkedOut = rows.find((row) => cleanCell(get(row, ["Status"], 2)) === "Checked out");
+    if (checkedOut) {
+      const attendance = cleanCell(get(checkedOut, ["Attendance Status"], 3));
+      return attendance ? `Checked out (marked ${attendance})` : "Checked out";
+    }
+
+    const notCheckedIn = rows.find((row) => cleanCell(get(row, ["Status"], 2)) === "Not checked in");
+    if (notCheckedIn) {
+      const attendance = cleanCell(get(notCheckedIn, ["Attendance Status"], 3));
+      return attendance ? `Not checked in (marked ${attendance})` : "Not checked in";
+    }
+
+    const blank = rows.find((row) => !cleanCell(get(row, ["Attendance Status"], 3)));
+    if (blank) return absentBySheetLogic ? "Not reported yet" : "Not reported yet (overridden)";
+
+    const needsCheck = rows.find((row) => {
+      const attendance = cleanCell(get(row, ["Attendance Status"], 3));
+      return attendance !== "Present" && attendance !== "Late";
+    });
+    if (needsCheck) return `Needs attendance check (${cleanCell(get(needsCheck, ["Attendance Status"], 3))})`;
+
+    const late = rows.find((row) => cleanCell(get(row, ["Attendance Status"], 3)) === "Late");
+    if (late) return "Late";
+
+    return "Present";
   }
 
   function parentInfo(row, number) {
@@ -810,6 +863,7 @@
           ${summaryCard(report.diagnostics.unspecifiedRows, "Students not yet reported")}
         </div>
         ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows, options.suppressedUnsubmittedProgramKeys || [])}
+        ${renderPresentButCheckedOutIssues(report.diagnostics.presentButCheckedOutIssues)}
       </section>
 
       <section class="workflow-section reports-section ${showSheets ? "" : "disabled-section"}" aria-labelledby="reports-heading">
@@ -830,6 +884,56 @@
 
   function summaryCard(number, label) {
     return `<div class="summary-card"><strong>${escapeHtml(number)}</strong><span>${escapeHtml(label)}</span></div>`;
+  }
+
+  function renderPresentButCheckedOutIssues(issues) {
+    if (!issues || !issues.length) {
+      return `
+        <section class="cleanup-panel cleanup-ok" aria-labelledby="cleanup-heading">
+          <h3 id="cleanup-heading">Jumbula cleanup: present but checked out/not checked in</h3>
+          <p>No students are simultaneously marked Present and Checked out/Not checked in.</p>
+        </section>`;
+    }
+
+    return `
+      <section class="cleanup-panel cleanup-warn" aria-labelledby="cleanup-heading">
+        <div class="cleanup-header">
+          <div>
+            <h3 id="cleanup-heading">Jumbula cleanup: present but checked out/not checked in</h3>
+            <p>These rows do not generate attendance check sheets. Fix the status conflict in Jumbula.</p>
+          </div>
+          <strong>${escapeHtml(issues.length)} issue${issues.length === 1 ? "" : "s"}</strong>
+        </div>
+        <div class="faculty-table-wrap">
+          <table class="cleanup-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Program</th>
+                <th>Jumbula status</th>
+                <th>Attendance status</th>
+                <th>Times</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${issues.map(renderCleanupIssueRow).join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>`;
+  }
+
+  function renderCleanupIssueRow(issue) {
+    const name = issue.id ? `${issue.name} (ID ${issue.id})` : issue.name;
+    const times = [issue.checkIn ? `In: ${issue.checkIn}` : "", issue.checkOut ? `Out: ${issue.checkOut}` : ""].filter(Boolean).join(" • ");
+    return `
+      <tr>
+        <td>${escapeHtml(name)}</td>
+        <td>${escapeHtml(issue.program)}</td>
+        <td>${escapeHtml(issue.status)}</td>
+        <td>${escapeHtml(issue.attendanceStatus)}</td>
+        <td>${escapeHtml(times || "—")}</td>
+      </tr>`;
   }
 
   function renderFacultySubmissionStatus(groups, totalUnreported, suppressedKeys = []) {
@@ -912,6 +1016,13 @@
       </tr>`;
   }
 
+  function roommateStatusClass(status) {
+    const normalized = cleanCell(status).toLowerCase();
+    if (normalized === "present" || normalized === "late") return "present";
+    if (normalized.includes("checked out") || normalized.includes("not checked in") || normalized.includes("not reported") || normalized.includes("needs")) return "warn";
+    return "";
+  }
+
   function renderUnreportedStudent(student) {
     const meta = [student.id ? `ID ${student.id}` : "", student.status, student.checkIn ? `check-in ${student.checkIn}` : ""].filter(Boolean).join(" • ");
     return `<li><span>${escapeHtml(student.name)}</span>${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</li>`;
@@ -978,7 +1089,7 @@
         ${row("Name", roommate.name)}
         ${row("House", roommate.house)}
         ${row("Room", roommate.room)}
-        <div class="info-row"><span class="label">Check status</span><span class="value"><span class="badge ${roommate.status === "Absent" ? "absent" : "present"}">${escapeHtml(roommate.status)}</span></span></div>
+        <div class="info-row"><span class="label">Check status</span><span class="value"><span class="badge ${roommateStatusClass(roommate.status)}">${escapeHtml(roommate.status)}</span></span></div>
         ${row("Program", roommate.program)}
         ${row("Phone number", roommate.phone)}
       </div>`).join("")}</div>`;
