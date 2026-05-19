@@ -1016,13 +1016,6 @@
       </tr>`;
   }
 
-  function roommateStatusClass(status) {
-    const normalized = cleanCell(status).toLowerCase();
-    if (normalized === "present" || normalized === "late") return "present";
-    if (normalized.includes("checked out") || normalized.includes("not checked in") || normalized.includes("not reported") || normalized.includes("needs")) return "warn";
-    return "";
-  }
-
   function renderUnreportedStudent(student) {
     const meta = [student.id ? `ID ${student.id}` : "", student.status, student.checkIn ? `check-in ${student.checkIn}` : ""].filter(Boolean).join(" • ");
     return `<li><span>${escapeHtml(student.name)}</span>${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</li>`;
@@ -1055,14 +1048,7 @@
         ])}
         <div class="section-title">Roommate information</div>
         ${renderRoommates(student.roommates)}
-        ${section("Parent / guardian contacts", [
-          row("Guardian 1", `${student.parent1.firstName} ${student.parent1.lastName}`),
-          row("Guardian 1 rel/lang", student.parent1.relationship),
-          row("Guardian 1 phone", student.parent1.phone),
-          row("Guardian 2", `${student.parent2.firstName} ${student.parent2.lastName}`),
-          row("Guardian 2 rel/lang", student.parent2.relationship),
-          row("Guardian 2 phone", student.parent2.phone)
-        ])}
+        ${renderGuardianContacts(student)}
         ${section("Yesterday evening housing check", [
           row("Date", student.yesterday.date),
           row("Housing status", student.yesterday.status),
@@ -1082,6 +1068,26 @@
       </article>`;
   }
 
+  function renderGuardianContacts(student) {
+    return `
+      <div class="section-title">Parent / guardian contacts</div>
+      <div class="guardian-grid">
+        ${guardianColumn("Parent / guardian 1", student.parent1)}
+        ${guardianColumn("Parent / guardian 2", student.parent2)}
+      </div>`;
+  }
+
+  function guardianColumn(title, guardian) {
+    const name = cleanCell(`${guardian.firstName} ${guardian.lastName}`);
+    return `
+      <div class="guardian-card">
+        <h4>${escapeHtml(title)}</h4>
+        ${row("Name", name)}
+        ${row("Rel/lang", guardian.relationship)}
+        ${row("Phone", guardian.phone)}
+      </div>`;
+  }
+
   function renderRoommates(roommates) {
     if (!roommates.length) return `<p class="muted">No roommate found in the registration database.</p>`;
     return `<div class="roommate-list">${roommates.map((roommate) => `
@@ -1089,7 +1095,7 @@
         ${row("Name", roommate.name)}
         ${row("House", roommate.house)}
         ${row("Room", roommate.room)}
-        <div class="info-row"><span class="label">Check status</span><span class="value"><span class="badge ${roommateStatusClass(roommate.status)}">${escapeHtml(roommate.status)}</span></span></div>
+        ${row("Check status", roommate.status)}
         ${row("Program", roommate.program)}
         ${row("Phone number", roommate.phone)}
       </div>`).join("")}</div>`;

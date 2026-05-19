@@ -117,18 +117,18 @@ button.danger { color: var(--danger); }
 .info-row { display: grid; grid-template-columns: 170px 1fr; gap: 8px; min-width: 0; }
 .info-row .label { font-weight: 800; color: #344054; }
 .info-row .value { overflow-wrap: anywhere; }
+.guardian-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.guardian-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: #fbfcff; }
+.guardian-card h4 { margin: 0 0 10px; font-size: 15px; }
+.guardian-card .info-row { grid-template-columns: 74px 1fr; }
 .roommate-list { display: grid; gap: 8px; }
 .muted { color: var(--muted); }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; background: #eef1f7; }
-.badge.absent { background: #fff1f0; color: var(--danger); }
-.badge.present { background: #ecfdf3; color: var(--ok); }
-.badge.warn { background: #fffaeb; color: var(--warn); }
 footer { color: var(--muted); font-size: 13px; }
 
 @media (max-width: 900px) {
   .app-header { grid-template-columns: 1fr; }
   .upload-grid, .summary-grid { grid-template-columns: repeat(2, 1fr); }
-  .settings-grid, .info-grid { grid-template-columns: 1fr; }
+  .settings-grid, .info-grid, .guardian-grid { grid-template-columns: 1fr; }
   .faculty-status-header, .faculty-status-panel.all-submitted { flex-direction: column; }
   .faculty-status-header strong, .faculty-status-panel.all-submitted > strong { white-space: normal; }
 }
@@ -187,8 +187,11 @@ footer { color: var(--muted); font-size: 13px; }
   .info-row { grid-template-columns: 1.35in 1fr; gap: 4pt; min-height: 14pt; }
   .info-row .label { color: #111; font-weight: 800; }
   .info-row .value { overflow-wrap: anywhere; }
+  .guardian-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8pt; }
+  .guardian-card { border: 1px solid #aaa; border-radius: 0; padding: 5pt; background: #fff; }
+  .guardian-card h4 { margin: 0 0 4pt; font-size: 10.5pt; }
+  .guardian-card .info-row { grid-template-columns: .65in 1fr; }
   .roommate-list { gap: 2pt; }
-  .badge { padding: 0; border-radius: 0; background: transparent !important; color: #000 !important; font-size: 11pt; }
   .muted { color: #333; margin: 2pt 0; }
   a { color: #000; text-decoration: none; }
 }
