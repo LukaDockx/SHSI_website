@@ -1,0 +1,13 @@
+{
+  "name": "shsi-missing-student-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static browser app for generating SHSI missing-student investigation sheets from local CSV exports.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "4.9.5"
+  }
+}

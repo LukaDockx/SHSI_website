@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "none",
+    "strict": false,
+    "noEmitOnError": false,
+    "skipLibCheck": true,
+    "outFile": "app.js"
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}

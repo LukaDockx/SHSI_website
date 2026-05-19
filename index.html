@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Missing Student Finder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">SHSI attendance workflow</p>
+      <h1>Missing Student Finder</h1>
+      <p class="lede">Upload Jumbula CSV exports locally in your browser, run the matching logic, and print/export the investigation sheets.</p>
+    </div>
+    <div class="privacy-card">
+      <strong>Privacy:</strong> CSV data never leaves this browser. Files are stored in localStorage only on this device until you clear them.
+    </div>
+  </header>
+
+  <main>
+    <section class="panel controls-panel" aria-labelledby="upload-heading">
+      <div class="panel-heading">
+        <div>
+          <h2 id="upload-heading">1. Upload CSV files</h2>
+          <p>Drag and drop each CSV into its box, or click a box to browse.</p>
+        </div>
+        <button id="clearAllButton" type="button" class="secondary danger">Clear stored data</button>
+      </div>
+
+      <div class="upload-grid">
+        <div class="drop-zone" data-file-key="today" tabindex="0" role="button" aria-label="Upload today's attendance CSV">
+          <input id="todayInput" type="file" accept=".csv,text/csv" hidden />
+          <span class="drop-title">Today attendance CSV</span>
+          <span class="drop-help">Current Jumbula live attendance export</span>
+          <span class="file-status" id="todayStatus">No file loaded</span>
+        </div>
+
+        <div class="drop-zone" data-file-key="yesterday" tabindex="0" role="button" aria-label="Upload yesterday housing attendance CSV">
+          <input id="yesterdayInput" type="file" accept=".csv,text/csv" hidden />
+          <span class="drop-title">Yesterday housing CSV</span>
+          <span class="drop-help">Previous evening housing attendance export</span>
+          <span class="file-status" id="yesterdayStatus">No file loaded</span>
+        </div>
+
+        <div class="drop-zone" data-file-key="database" tabindex="0" role="button" aria-label="Upload registration database CSV">
+          <input id="databaseInput" type="file" accept=".csv,text/csv" hidden />
+          <span class="drop-title">Registration database CSV</span>
+          <span class="drop-help">Stable roster/contact/housing/program export</span>
+          <span class="file-status" id="databaseStatus">No file loaded</span>
+        </div>
+
+        <div class="drop-zone" data-file-key="faculty" tabindex="0" role="button" aria-label="Upload faculty contacts CSV">
+          <input id="facultyInput" type="file" accept=".csv,text/csv" hidden />
+          <span class="drop-title">Faculty contacts CSV</span>
+          <span class="drop-help">Program, faculty, contact person, phone</span>
+          <span class="file-status" id="facultyStatus">No file loaded</span>
+        </div>
+      </div>
+
+      <details class="settings">
+        <summary>Settings and program lists</summary>
+        <label class="checkbox-row">
+          <input id="includeUnspecified" type="checkbox" checked />
+          Include records where faculty has not specified Present/Late/Absent yet
+        </label>
+        <p class="muted">The old script used hard-coded housing/program names. You can edit them here for a new year. Lists are saved in this browser.</p>
+        <div class="settings-grid">
+          <label>
+            Housing programs, one per line
+            <textarea id="housesText" spellcheck="false"></textarea>
+          </label>
+          <label>
+            Activity programs, one per line
+            <textarea id="activitiesText" spellcheck="false"></textarea>
+          </label>
+        </div>
+        <button id="resetListsButton" type="button" class="secondary">Reset lists to defaults</button>
+      </details>
+
+      <div class="actions">
+        <button id="runButton" type="button">Run missing-student report</button>
+        <button id="printButton" type="button" class="secondary" disabled>Export/Print PDF</button>
+      </div>
+    </section>
+
+    <section id="messages" class="messages" aria-live="polite"></section>
+
+    <section id="report" class="report" aria-labelledby="report-heading">
+      <div class="report-empty">
+        <h2 id="report-heading">2. Report</h2>
+        <p>Upload the four CSV files and press Run. Missing student sheets will appear here.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Static app for GitHub Pages. No server, no student data in source code.</p>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
