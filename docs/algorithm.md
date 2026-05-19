@@ -22,6 +22,10 @@ For each CSV:
 - Program date suffixes such as `, Jun 2, 2025...` are stripped.
 - Column names are matched by normalized aliases first, then by the fallback column positions used by the historical Python script.
 
+## Faculty submission-status check
+
+Before generating student sheets, active non-housing rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. The faculty contacts CSV is joined on program name so the page can show which faculty/contact has not submitted attendance yet and how many students are still unreported for that program. This grouping is computed before the optional `includeUnspecified` filter so the morning status panel remains useful even if blank rows are excluded from the printed check sheets.
+
 ## Attendance check selection
 
 Let `todayRows` be today's attendance rows after normalization.
@@ -52,6 +56,7 @@ For `n` today's rows, `m` database rows, `y` yesterday rows, and `f` faculty row
 
 - CSV parsing is linear in file size.
 - Row normalization is `O(n + m + y + f)`.
+- Faculty submission grouping is `O(u + f)` for `u` blank-status rows and `f` faculty rows.
 - ID lookups use maps, so student enrichment is approximately `O(k + m)` where `k` is the number of students needing an attendance check.
 - Roommate lookup currently scans housing rows for each student needing an attendance check, `O(kh)` where `h` is the number of housing rows. This is acceptable for summer-program scale; if the roster grows significantly, index housing rows by room stem to make it `O(k + h)`.
 

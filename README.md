@@ -11,8 +11,9 @@ A static, browser-only replacement for `oldpythoncode.py`.
    - faculty contacts export
 2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh.
 3. Press **Run attendance check report**.
-4. Review the generated attendance check sheets in the page.
-5. Press **Export/Print PDF** and choose **Save as PDF** in the browser print dialog. The print stylesheet formats each student needing a check as one Letter-size attendance check sheet.
+4. Review **Faculty attendance not submitted yet** to see which programs still have blank Attendance Status cells and how many students are unreported.
+5. Review the generated attendance check sheets in the page.
+6. Press **Export/Print PDF** and choose **Save as PDF** in the browser print dialog. The print stylesheet formats each student needing a check as one Letter-size attendance check sheet.
 
 No server is used and no CSV/student data is included in the source code or sent over the network.
 
@@ -31,6 +32,7 @@ The screen report is optimized for review. The PDF/print version is intentionall
 - one student per Letter-size page
 - page header: **Attendance Check Sheet**
 - sections: student/current check, roommate information, parent/guardian contacts, yesterday evening housing check, and faculty contact
+- the faculty submission-status section is shown on the website and hidden in the per-student PDF
 - app controls, warnings, and summary cards are hidden in the PDF
 
 ## TypeScript workflow
@@ -56,6 +58,7 @@ The app intentionally matches the old Python script's important behavior while b
 - Whitespace inside cells is normalized.
 - Program names with date suffixes like `Program, Jun 2, 2025...` are normalized to `Program`.
 - `Present` and `Late` are treated as safe attendance statuses; anything else is included in the attendance check report.
+- Blank/whitespace `Attendance Status` cells are grouped by program/faculty in the morning faculty submission-status section.
 - Students marked `Checked out` or `Not checked in` are excluded from the attendance check sheet list, but a warning is shown if they are also marked `Present`.
 - Housing and activity names are editable in the page under **Settings and program lists** and persist locally.
 

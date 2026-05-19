@@ -337,6 +337,7 @@
     const yesterdayById = groupById(yesterday.records, 8);
     const yesterdayByName = groupBy(yesterday.records, (record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase());
     const facultyByProgram = groupFaculty(faculty.records);
+    const unsubmittedAttendance = buildUnsubmittedAttendance(unspecified, facultyByProgram);
     const absentNames = new Set(absentRows.map((record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase()).filter(Boolean));
 
     const students = absentRows.map((attendanceRow) => {
@@ -393,10 +394,33 @@
         activeActivityRows: activeToday.length,
         absentRows: absentRows.length,
         unspecifiedRows: unspecified.length,
+        unsubmittedAttendance,
         presentNotCheckedIn: presentNotCheckedIn.map((record) => cleanCell(get(record, ["Participant", "Name"], 0))).filter(Boolean),
         unknownPrograms
       }
     };
+  }
+
+  function buildUnsubmittedAttendance(unspecifiedRows, facultyByProgram) {
+    const grouped = new Map();
+    unspecifiedRows.forEach((record) => {
+      const program = stripProgramDate(programOf(record)) || "Unknown program";
+      const key = canonProgram(program);
+      if (!grouped.has(key)) {
+        const facultyRows = facultyByProgram.get(key) || [];
+        grouped.set(key, {
+          program,
+          count: 0,
+          faculty: facultyRows.map(facultyInfo)
+        });
+      }
+      grouped.get(key).count += 1;
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.program.localeCompare(b.program);
+    });
   }
 
   function recordsFromCsv(text, label, warnings) {
@@ -665,7 +689,7 @@
       messages.push({ type: "warn", text: `Present but checked out/not checked in: ${report.diagnostics.presentNotCheckedIn.join(", ")}.` });
     }
     if (report.diagnostics.unspecifiedRows) {
-      messages.push({ type: "warn", text: `${report.diagnostics.unspecifiedRows} active activity row(s) have no Attendance Status.` });
+      messages.push({ type: "warn", text: `${report.diagnostics.unspecifiedRows} student row(s) across ${report.diagnostics.unsubmittedAttendance.length} program(s) have blank Attendance Status.` });
     }
     report.warnings.slice(0, 12).forEach((warning) => messages.push({ type: "warn", text: warning }));
     if (report.warnings.length > 12) messages.push({ type: "warn", text: `${report.warnings.length - 12} more warning(s) not shown. Check the report inputs/settings.` });
@@ -678,34 +702,83 @@
 
   function renderReport(report) {
     const reportElement = byId("report");
-    if (!report.students.length) {
-      reportElement.innerHTML = `
-        <div class="report-empty">
-          <h2>2. Attendance check report</h2>
-          <p>No students needing an attendance check were found after applying the current filters.</p>
-        </div>`;
-      return;
-    }
+    const sheetMarkup = report.students.length
+      ? report.students.map(renderStudentCard).join("")
+      : `<div class="report-empty"><h2>Attendance check sheets</h2><p>No students needing an attendance check were found after applying the current filters.</p></div>`;
 
     reportElement.innerHTML = `
       <div class="report-toolbar">
         <div>
           <h2>2. Attendance check report</h2>
-          <p>One attendance check sheet is generated per student. Use Export/Print PDF to create one Letter-size page per student.</p>
+          <p>First review faculty submission status, then print one Letter-size attendance check sheet per student if needed.</p>
         </div>
-        <button type="button" onclick="window.print()">Export/Print PDF</button>
+        <button type="button" onclick="window.print()" ${report.students.length ? "" : "disabled"}>Export/Print PDF</button>
       </div>
       <div class="summary-grid">
         ${summaryCard(report.students.length, "Attendance check sheets")}
         ${summaryCard(report.diagnostics.todayRows, "Today CSV data rows")}
         ${summaryCard(report.diagnostics.activeActivityRows, "Active activity rows checked")}
-        ${summaryCard(report.diagnostics.unspecifiedRows, "Unspecified check rows")}
+        ${summaryCard(report.diagnostics.unspecifiedRows, "Students not yet reported")}
       </div>
-      ${report.students.map(renderStudentCard).join("")}`;
+      ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows)}
+      ${sheetMarkup}`;
   }
 
   function summaryCard(number, label) {
     return `<div class="summary-card"><strong>${escapeHtml(number)}</strong><span>${escapeHtml(label)}</span></div>`;
+  }
+
+  function renderFacultySubmissionStatus(groups, totalUnreported) {
+    if (!groups.length) {
+      return `
+        <section class="faculty-status-panel all-submitted" aria-labelledby="faculty-status-heading">
+          <div>
+            <h3 id="faculty-status-heading">Faculty attendance submission status</h3>
+            <p>All active activity rows have an Attendance Status value.</p>
+          </div>
+          <strong>0 students unreported</strong>
+        </section>`;
+    }
+
+    return `
+      <section class="faculty-status-panel needs-submission" aria-labelledby="faculty-status-heading">
+        <div class="faculty-status-header">
+          <div>
+            <h3 id="faculty-status-heading">Faculty attendance not submitted yet</h3>
+            <p>These programs still have blank/whitespace Attendance Status cells in today's CSV.</p>
+          </div>
+          <strong>${escapeHtml(totalUnreported)} students unreported</strong>
+        </div>
+        <div class="faculty-table-wrap">
+          <table class="faculty-status-table">
+            <thead>
+              <tr>
+                <th>Program</th>
+                <th>Faculty / contact</th>
+                <th>Students not reported present/absent</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groups.map(renderFacultySubmissionRow).join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>`;
+  }
+
+  function renderFacultySubmissionRow(group) {
+    const facultyText = group.faculty.length
+      ? group.faculty.map((faculty) => {
+          const pieces = [faculty.faculty, faculty.contact, faculty.phone].map(cleanCell).filter((value) => value && value !== "N/A");
+          return pieces.length ? pieces.join(" • ") : "N/A";
+        }).join("; ")
+      : "No matching faculty contact";
+    return `
+      <tr>
+        <td>${escapeHtml(group.program)}</td>
+        <td>${escapeHtml(facultyText)}</td>
+        <td><strong>${escapeHtml(group.count)}</strong></td>
+      </tr>`;
   }
 
   function renderStudentCard(student) {
