@@ -38,9 +38,9 @@
 
         <div class="drop-zone" data-file-key="yesterday" tabindex="0" role="button" aria-label="Upload yesterday housing attendance CSV">
           <input id="yesterdayInput" type="file" accept=".csv,text/csv" hidden />
-          <span class="drop-title">Yesterday housing CSV</span>
-          <span class="drop-help">Previous evening housing attendance export</span>
-          <span class="file-status" id="yesterdayStatus">No file loaded</span>
+          <span class="drop-title">Yesterday housing CSV <span class="optional-tag">optional</span></span>
+          <span class="drop-help">Previous evening housing attendance export. If omitted, yesterday housing check info is skipped.</span>
+          <span class="file-status" id="yesterdayStatus">Optional - no file loaded</span>
         </div>
 
         <div class="drop-zone" data-file-key="database" tabindex="0" role="button" aria-label="Upload registration database CSV">
@@ -84,7 +84,7 @@
     <section id="report" class="report" aria-labelledby="faculty-review-heading">
       <div class="workflow-section disabled-section">
         <h2 id="faculty-review-heading">2. Faculty attendance review</h2>
-        <p>Upload the four CSV files, then press Review faculty submissions.</p>
+        <p>Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.</p>
       </div>
       <div class="workflow-section disabled-section">
         <div class="report-section-header">

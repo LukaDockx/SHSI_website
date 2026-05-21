@@ -7,7 +7,7 @@ This document describes the browser implementation in `src/app.ts` / `app.js`.
 The workflow uses four user-supplied CSV files. They are read with the browser `FileReader` API and persisted in `localStorage` on the same device.
 
 1. **Today attendance CSV**: current Jumbula live attendance export.
-2. **Yesterday housing CSV**: previous evening housing attendance export.
+2. **Yesterday housing CSV**: optional previous evening housing attendance export.
 3. **Registration database CSV**: stable roster/contact/housing/activity export.
 4. **Faculty contacts CSV**: program-to-contact mapping.
 
@@ -50,7 +50,7 @@ For each attendance row that needs a check:
 - Split database rows into housing rows and activity rows using the editable housing list.
 - Pull house/room from the matching housing row.
 - Pull gender, student phone, parent/guardian details, and all enrolled programs from matching activity rows.
-- Match yesterday's housing attendance by external ID, with participant name as a fallback.
+- If a yesterday housing CSV was uploaded, match yesterday's housing attendance by external ID, with participant name as a fallback. If it was omitted, the generated sheets omit yesterday housing-check fields.
 - Match faculty contacts by current activity/program.
 - Find roommates by comparing the room stem (old behavior: drop the final room character, usually the bed suffix) among housing rows. Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
 

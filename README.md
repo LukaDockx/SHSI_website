@@ -4,9 +4,9 @@ A static, browser-only replacement for `oldpythoncode.py`.
 
 ## What it does
 
-1. Upload four CSV exports:
+1. Upload the CSV exports:
    - today's Jumbula attendance export
-   - yesterday's housing attendance export
+   - yesterday's housing attendance export (optional)
    - registration/database export
    - faculty contacts export
 2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh.
@@ -33,7 +33,7 @@ The screen report is optimized for review. The PDF/print version is intentionall
 
 - one student per Letter-size page
 - page header: **Attendance Check Sheet**
-- sections: student/current check, roommate information, parent/guardian contacts, yesterday evening housing check, and faculty contact
+- sections: student/current check, roommate information, parent/guardian contacts, optional yesterday evening housing check, and faculty contact
 - **2. Faculty attendance review** is its own website section with per-program sheet-generation checkboxes, expandable unreported-student lists, and Jumbula cleanup rows; it is hidden in the per-student PDF
 - **3. Reports** contains sheet-generation status, generated sheets, and PDF export
 - app controls, warnings, and summary cards are hidden in the PDF
@@ -61,6 +61,7 @@ The app intentionally matches the old Python script's important behavior while b
 - Whitespace inside cells is normalized.
 - Program names with date suffixes like `Program, Jun 2, 2025...` are normalized to `Program`.
 - `Present` and `Late` are treated as safe attendance statuses; anything else is included in the attendance check report.
+- The yesterday housing CSV is optional; if it is omitted, yesterday evening housing check info is omitted from generated sheets.
 - Blank/whitespace `Attendance Status` cells are grouped by program/faculty in the morning faculty submission-status section. Checked groups generate sheets for those students; unchecked groups are treated as all present for sheet generation.
 - Rows where `Attendance Status` is `Present` while `Status` is `Checked out` or `Not checked in` are shown as website-only Jumbula cleanup issues and do not generate sheets.
 - Roommate status uses today's attendance rows and distinguishes Present, Late, Needs attendance check, Not reported yet, Checked out, and Not checked in.

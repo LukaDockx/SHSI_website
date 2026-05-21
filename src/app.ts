@@ -97,10 +97,10 @@
   ];
 
   const FILES = {
-    today: { label: "Today attendance CSV", inputId: "todayInput", statusId: "todayStatus" },
-    yesterday: { label: "Yesterday housing CSV", inputId: "yesterdayInput", statusId: "yesterdayStatus" },
-    database: { label: "Registration database CSV", inputId: "databaseInput", statusId: "databaseStatus" },
-    faculty: { label: "Faculty contacts CSV", inputId: "facultyInput", statusId: "facultyStatus" }
+    today: { label: "Today attendance CSV", inputId: "todayInput", statusId: "todayStatus", required: true },
+    yesterday: { label: "Yesterday housing CSV", inputId: "yesterdayInput", statusId: "yesterdayStatus", required: false },
+    database: { label: "Registration database CSV", inputId: "databaseInput", statusId: "databaseStatus", required: true },
+    faculty: { label: "Faculty contacts CSV", inputId: "facultyInput", statusId: "facultyStatus", required: true }
   };
 
   const state = {
@@ -136,7 +136,7 @@
     byId("report").innerHTML = `
       <div class="workflow-section disabled-section">
         <h2>2. Faculty attendance review</h2>
-        <p>${escapeHtml(message || "Upload the four CSV files, then press Review faculty submissions.")}</p>
+        <p>${escapeHtml(message || "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.")}</p>
       </div>
       <div class="workflow-section disabled-section">
         <div class="report-section-header">
@@ -229,7 +229,7 @@
         status.textContent = `${stored.name || "Stored CSV"} • ${formatBytes(stored.size || stored.text.length)}`;
         status.classList.add("loaded");
       } else {
-        status.textContent = "No file loaded";
+        status.textContent = FILES[key].required ? "No file loaded" : "Optional - no file loaded";
         status.classList.remove("loaded");
       }
     });
@@ -244,7 +244,7 @@
     localStorage.removeItem(STORAGE_KEY);
     updateFileStatuses();
     setPrintDisabled(true);
-    renderInitialReportPlaceholders("Stored CSV data was cleared. Upload the four CSV files, then press Review faculty submissions.");
+    renderInitialReportPlaceholders("Stored CSV data was cleared. Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.");
     showMessages([{ type: "ok", text: "Stored CSV data cleared." }]);
   }
 
@@ -317,7 +317,7 @@
   }
 
   function currentInputOptions() {
-    const missing = Object.keys(FILES).filter((key) => !(state.files[key] && state.files[key].text));
+    const missing = Object.keys(FILES).filter((key) => FILES[key].required && !(state.files[key] && state.files[key].text));
     if (missing.length) {
       showMessages([{ type: "error", text: `Missing required file(s): ${missing.map((key) => FILES[key].label).join(", ")}.` }]);
       return null;
@@ -325,7 +325,7 @@
 
     return {
       todayText: state.files.today.text,
-      yesterdayText: state.files.yesterday.text,
+      yesterdayText: state.files.yesterday && state.files.yesterday.text ? state.files.yesterday.text : "",
       databaseText: state.files.database.text,
       facultyText: state.files.faculty.text,
       programLists: currentProgramLists()
@@ -363,7 +363,11 @@
   function buildReport(options) {
     const warnings = [];
     const today = recordsFromCsv(options.todayText, "today attendance", warnings);
-    const yesterday = recordsFromCsv(options.yesterdayText, "yesterday housing", warnings);
+    const yesterday = options.yesterdayText
+      ? recordsFromCsv(options.yesterdayText, "yesterday housing", warnings)
+      : { headers: [], records: [], label: "yesterday housing" };
+    const hasYesterdayHousing = Boolean(options.yesterdayText);
+    if (!hasYesterdayHousing) warnings.push("Yesterday housing CSV was not uploaded; yesterday evening housing check info will be omitted from sheets.");
     const database = recordsFromCsv(options.databaseText, "registration database", warnings);
     const faculty = recordsFromCsv(options.facultyText, "faculty contacts", warnings);
 
@@ -475,6 +479,7 @@
         absentRows: absentRows.length,
         unspecifiedRows: unspecified.length,
         unsubmittedAttendance,
+        hasYesterdayHousing,
         presentButCheckedOutIssues,
         presentNotCheckedIn: presentButCheckedOutIssues.map((issue) => issue.name).filter(Boolean),
         unknownPrograms
@@ -706,8 +711,9 @@
   }
 
   function yesterdayInfo(row) {
-    if (!row) return { date: "", status: "", attendanceStatus: "", program: "", checkIn: "", checkOut: "" };
+    if (!row) return { available: false, date: "", status: "", attendanceStatus: "", program: "", checkIn: "", checkOut: "" };
     return {
+      available: true,
       date: cleanCell(get(row, ["Date"], 1)),
       status: cleanCell(get(row, ["Status"], 2)),
       attendanceStatus: cleanCell(get(row, ["Attendance Status"], 3)),
@@ -1049,14 +1055,7 @@
         <div class="section-title">Roommate information</div>
         ${renderRoommates(student.roommates)}
         ${renderGuardianContacts(student)}
-        ${section("Yesterday evening housing check", [
-          row("Date", student.yesterday.date),
-          row("Housing status", student.yesterday.status),
-          row("Housing check status", student.yesterday.attendanceStatus),
-          row("House/program", student.yesterday.program),
-          row("Check-in time", student.yesterday.checkIn),
-          row("Check-out time", student.yesterday.checkOut)
-        ])}
+        ${renderYesterdayHousingCheck(student.yesterday)}
         <div class="section-title">Program faculty contact</div>
         ${student.faculty.length ? student.faculty.map((faculty) => `
           <div class="info-grid compact-grid">
@@ -1066,6 +1065,18 @@
             ${row("Contact phone", faculty.phone)}
           </div>`).join("") : `<p class="muted">No matching faculty contact was found.</p>`}
       </article>`;
+  }
+
+  function renderYesterdayHousingCheck(yesterday) {
+    if (!yesterday || !yesterday.available) return "";
+    return section("Yesterday evening housing check", [
+      row("Date", yesterday.date),
+      row("Housing status", yesterday.status),
+      row("Housing check status", yesterday.attendanceStatus),
+      row("House/program", yesterday.program),
+      row("Check-in time", yesterday.checkIn),
+      row("Check-out time", yesterday.checkOut)
+    ]);
   }
 
   function renderGuardianContacts(student) {
