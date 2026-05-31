@@ -6,12 +6,8 @@
 (() => {
     "use strict";
     const STORAGE_KEY = "shsiMissingStudentFinder.v1";
-    const LISTS_KEY = "shsiMissingStudentFinder.programLists.v1";
+    const LISTS_KEY = "shsiAttendanceChecker.programLists.v2";
     const DEFAULT_HOUSES = [
-        "Carter House 1",
-        "School District Waitlist",
-        "Carter House 2",
-        "Carter House 3",
         "Casa Jackson 1",
         "Casa Jackson 2",
         "Casa Jackson 3",
@@ -40,57 +36,51 @@
         "Ritter House 2",
         "Ritter House 3",
         "Wemyss Hall 1",
-        "School District Waitlist housing",
         "Wemyss Hall 2",
-        "Wemyss Hall 3"
+        "Wemyss Hall 3",
+        "School District Sponsored Waitlist housing"
     ];
     const DEFAULT_ACTIVITIES = [
         "2D Art Studio",
-        "School District Waitlist",
+        "3D Art and Animation",
         "3D Modeling and Printing",
-        "Arte Tridimensional y Animación",
+        "Acting for the Stage",
         "Baseball Skills and Tactics",
-        "Basketball Skills Academy",
-        "Be a Lawyer in Court",
-        "Beach Volleyball",
+        "Be an Influencer",
         "Become the Best Teacher or Coach",
+        "Blogs, Vlogs, Podcasts and Reels",
         "Building Electrical Circuits and Computers",
-        "Building Smart Devices",
+        "Building Your Own Business",
         "Ceramics Studio",
-        "Choir",
         "Coding",
         "Competitive Debate",
+        "Competitive Gaming and Esports",
         "Computer Drawing and Drafting",
         "Creative Writing and Storytelling",
-        "Data Science",
-        "Design and Synthesis of Anticancer Drugs",
+        "Dance and Cheer",
         "Drone Flying",
-        "eSports",
-        "Esport",
+        "Engineering Olympics",
         "Exploring the Human Body",
-        "F1tenth Racing",
         "Finding a Cure for Cancer",
-        "Future Dentists",
         "Future Pharmacists",
-        "Instrumental Music",
+        "Game Design & Development",
+        "Healthcare Professions",
         "Investing in Stocks",
-        "Jazz",
-        "Leadership for Women",
-        "Musical Theatre Workshop & Showcase",
-        "Nursing: Caring Hands, Healing Hearts",
-        "Piano",
-        "Plant Biodiversity",
-        "Soccer Skills and Tactics - Week 2/4",
-        "Soccer Skills and Tactics - Week 1/3",
+        "Lawyers and the Rule of Law",
+        "Medical Microbiology Experience",
+        "Music Industry",
+        "Police Cadet Academy",
+        "Prototyping and Advanced Manufacturing",
+        "Robotics Camp",
+        "School District Sponsored Waitlist",
         "Soccer Skills and Tactics",
-        "Softball",
-        "Sports Analytics",
+        "Strength and Conditioning",
+        "Swim Camp",
         "Taking Control of Your Financial Future",
         "Tennis Skills and Tactics",
+        "The Business of Esports",
         "The Science and Practice of Fitness",
-        "Virtual Reality and Immersive Design",
-        "Volleyball Skills and Tactics",
-        "Water Polo Skills and Tactics"
+        "Volleyball Skills and Tactics"
     ];
     const FILES = {
         today: { label: "Today attendance CSV", inputId: "todayInput", statusId: "todayStatus", required: true },
@@ -728,6 +718,17 @@
         return cleanCell(`${firstNameOf(record)} ${lastNameOf(record)}`);
     }
     function participantExternalId(record, fallbackIndex) {
+        // Jumbula's 2026 live-attendance export currently has a shifted ID bug:
+        // the numeric Pacific ID appears under "Picked up by", while
+        // "Participant external ID" contains Jumbula's internal alphanumeric ID.
+        // Attendance reports call this with fallbackIndex 8, so prefer the
+        // numeric Picked up by / column-8 value there. Registration database rows
+        // still use their normal Participant external ID / last-column matching.
+        if (fallbackIndex === 8) {
+            const pickedUpBy = normalizeId(get(record, ["Picked up by", "Picked Up By"], 8));
+            if (looksLikePacificId(pickedUpBy))
+                return pickedUpBy;
+        }
         return normalizeId(get(record, ["Participant external ID", "Participant External ID", "External ID", "Pacific ID", "Student ID", "ID"], fallbackIndex));
     }
     function get(record, aliases, fallbackIndex) {
@@ -761,6 +762,9 @@
         if (/^\d+\.0$/.test(cleaned))
             return cleaned.slice(0, -2);
         return cleaned;
+    }
+    function looksLikePacificId(value) {
+        return /^\d{5,}$/.test(normalizeId(value));
     }
     function normalizeId(value) {
         const cleaned = cleanCell(value);

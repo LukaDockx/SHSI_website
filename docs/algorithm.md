@@ -21,6 +21,7 @@ For each CSV:
 - Repeated whitespace inside cells is collapsed.
 - Program date suffixes such as `, Jun 2, 2025...` are stripped.
 - Column names are matched by normalized aliases first, then by the fallback column positions used by the historical Python script.
+- For attendance reports, the current Jumbula export may put the numeric Pacific ID in `Picked up by` while `Participant external ID` contains an internal alphanumeric ID. Attendance-row matching therefore prefers a numeric `Picked up by` / column-8 value; database rows still use their normal external-ID/last-column value.
 
 ## Faculty submission-status check
 

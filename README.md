@@ -57,6 +57,7 @@ See `docs/algorithm.md` for the detailed matching algorithm, complexity, and lim
 The app intentionally matches the old Python script's important behavior while being more tolerant:
 
 - Jumbula "Live attendance" title/filter rows are detected and skipped.
+- For the current Jumbula attendance export bug, today/yesterday attendance rows use the numeric Pacific ID from the `Picked up by` column when matching to the database, because `Participant external ID` may contain Jumbula's internal alphanumeric participant ID.
 - Empty rows are ignored.
 - Whitespace inside cells is normalized.
 - Program names with date suffixes like `Program, Jun 2, 2025...` are normalized to `Program`.
@@ -66,6 +67,6 @@ The app intentionally matches the old Python script's important behavior while b
 - Rows where `Attendance Status` is `Present` while `Status` is `Checked out` or `Not checked in` are shown as website-only Jumbula cleanup issues and do not generate sheets.
 - Roommate status uses today's attendance rows and distinguishes Present, Late, Needs attendance check, Not reported yet, Checked out, and Not checked in.
 - Students marked `Checked out` or `Not checked in` are excluded from the attendance check sheet list, but a warning is shown if they are also marked `Present`.
-- Housing and activity names are editable in the page under **Settings and program lists** and persist locally.
+- Housing and activity names are editable in the page under **Settings and program lists** and persist locally. The built-in defaults were updated to the current activity/housing list; use **Reset lists to defaults** if your browser still shows an older saved list.
 
 If Jumbula changes column names, the app first tries common header aliases and then falls back to the column positions used by `oldpythoncode.py`.
