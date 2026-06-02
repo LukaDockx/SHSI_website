@@ -683,20 +683,24 @@
   }
 
   function parentInfo(row, number) {
-    if (!row) return { firstName: "", lastName: "", relationship: "", phone: "" };
+    if (!row) return { firstName: "", lastName: "", relationship: "", language: "", phone: "", email: "" };
     if (number === 1) {
       return {
-        firstName: cleanCell(get(row, ["Parent 1 first name", "P1 firstname", "P1 first name", "Guardian 1 first name"], 7)),
-        lastName: cleanCell(get(row, ["Parent 1 last name", "P1 lastname", "P1 last name", "Guardian 1 last name"], 8)),
-        relationship: cleanCell(get(row, ["Parent 1 relationship", "Parent 1 language", "P1 rel", "Guardian 1 relationship"], 10)),
-        phone: phoneLike(get(row, ["Parent 1 phone", "P1 phone", "Guardian 1 phone"], 9))
+        firstName: cleanCell(get(row, ["Parent/guardian information: First name", "Parent 1 first name", "P1 firstname", "P1 first name", "Guardian 1 first name"], 7)),
+        lastName: cleanCell(get(row, ["Parent/guardian information: Last name", "Parent 1 last name", "P1 lastname", "P1 last name", "Guardian 1 last name"], 8)),
+        relationship: cleanCell(get(row, ["Parent/guardian information: Relationship", "Parent 1 relationship", "P1 rel", "Guardian 1 relationship"], 9)),
+        language: cleanCell(get(row, ["Parent/guardian information: Parent/guardian primary language", "Parent 1 language", "Guardian 1 language"], 11)),
+        phone: phoneLike(get(row, ["Parent/guardian information: Parent/guardian cell phone", "Parent 1 phone", "P1 phone", "Guardian 1 phone"], 10)),
+        email: ""
       };
     }
     return {
-      firstName: cleanCell(get(row, ["Parent 2 first name", "P2 firstname", "P2 first name", "Guardian 2 first name"], 11)),
-      lastName: cleanCell(get(row, ["Parent 2 last name", "P2 lastname", "P2 last name", "Guardian 2 last name"], 12)),
-      relationship: cleanCell(get(row, ["Parent 2 relationship", "Parent 2 language", "P2 rel", "Guardian 2 relationship"], 14)),
-      phone: phoneLike(get(row, ["Parent 2 phone", "P2 phone", "Guardian 2 phone"], 13))
+      firstName: cleanCell(get(row, ["Parent/guardian 2 information: First name", "Parent 2 first name", "P2 firstname", "P2 first name", "Guardian 2 first name"], 12)),
+      lastName: cleanCell(get(row, ["Parent/guardian 2 information: Last name", "Parent 2 last name", "P2 lastname", "P2 last name", "Guardian 2 last name"], 13)),
+      email: cleanCell(get(row, ["Parent/guardian 2 information: Email address", "Parent 2 email", "P2 email", "Guardian 2 email"], 14)),
+      relationship: cleanCell(get(row, ["Parent/guardian 2 information: Relationship", "Parent 2 relationship", "P2 rel", "Guardian 2 relationship"], 15)),
+      language: cleanCell(get(row, ["Parent/guardian 2 information: Parent/guardian primary language", "Parent 2 language", "Guardian 2 language"], 17)),
+      phone: phoneLike(get(row, ["Parent/guardian 2 information: Parent/guardian cell phone", "Parent 2 phone", "P2 phone", "Guardian 2 phone"], 16))
     };
   }
 
@@ -1094,11 +1098,12 @@
 
   function guardianColumn(title, guardian) {
     const name = cleanCell(`${guardian.firstName} ${guardian.lastName}`);
+    const relLang = [guardian.relationship, guardian.language].map(cleanCell).filter(Boolean).join(" / ");
     return `
       <div class="guardian-card">
         <h4>${escapeHtml(title)}</h4>
         ${row("Name", name)}
-        ${row("Rel/lang", guardian.relationship)}
+        ${row("Rel/lang", relLang)}
         ${row("Phone", guardian.phone)}
       </div>`;
   }
