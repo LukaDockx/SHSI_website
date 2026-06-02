@@ -384,8 +384,8 @@
         });
         const dbHousing = database.records.filter((record) => houses.has(canonProgram(record.__program)));
         const dbActivity = database.records.filter((record) => !houses.has(canonProgram(record.__program)));
-        const dbHousingById = groupById(dbHousing, 20);
-        const dbActivityById = groupById(dbActivity, 20);
+        const dbHousingById = groupById(dbHousing, 23);
+        const dbActivityById = groupById(dbActivity, 23);
         const yesterdayById = groupById(yesterday.records, 8);
         const yesterdayByName = groupBy(yesterday.records, (record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase());
         const facultyByProgram = groupFaculty(faculty.records);
@@ -421,7 +421,7 @@
                 currentActivity,
                 allPrograms: unique(activityRows.map(programOf).map(stripProgramDate).filter(Boolean)),
                 gender: activityRow ? cleanCell(get(activityRow, ["Gender", "Sex"], 2)) : "",
-                studentPhone: activityRow ? phoneLike(get(activityRow, ["Student phone", "Participant phone", "Phone", "Phone number"], 5)) : "",
+                studentPhone: activityRow ? studentPhoneOf(activityRow) : "",
                 status: cleanCell(get(attendanceRow, ["Status"], 2)),
                 attendanceStatus: cleanCell(get(attendanceRow, ["Attendance Status"], 3)) || "Not specified",
                 checkIn: cleanCell(get(attendanceRow, ["Check in", "Check-in", "Check In"], 5)),
@@ -607,9 +607,9 @@
         if (!roomBase)
             return [];
         return context.dbHousing
-            .filter((candidate) => roomStem(roomOf(candidate)) === roomBase && participantExternalId(candidate, 20) !== context.selfId)
+            .filter((candidate) => roomStem(roomOf(candidate)) === roomBase && participantExternalId(candidate, 23) !== context.selfId)
             .map((candidate) => {
-            const id = participantExternalId(candidate, 20);
+            const id = participantExternalId(candidate, 23);
             const activity = (context.dbActivityById.get(id) || [])[0] || null;
             const name = fullNameFromDatabase(candidate);
             return {
@@ -624,7 +624,7 @@
                     absentNames: context.absentNames
                 }),
                 program: activity ? stripProgramDate(programOf(activity)) : "",
-                phone: activity ? phoneLike(get(activity, ["Student phone", "Participant phone", "Phone", "Phone number"], 5)) : ""
+                phone: activity ? studentPhoneOf(activity) : ""
             };
         });
     }
@@ -701,13 +701,16 @@
         };
     }
     function programOf(record) {
-        return cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], 15));
+        return cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], 19));
     }
     function houseOf(record) {
-        return cleanCell(get(record, ["House", "Housing", "Dorm", "Residence hall", "Residence Hall"], 3)) || programOf(record);
+        return cleanCell(get(record, ["Participant information: Residence hall", "House", "Housing", "Dorm", "Residence hall", "Residence Hall"], 4)) || programOf(record);
     }
     function roomOf(record) {
-        return cleanCell(get(record, ["Room", "Room number", "Housing room", "Dorm room"], 4));
+        return cleanCell(get(record, ["Participant information: Room number", "Room number", "Housing room", "Dorm room", "Room"], 5));
+    }
+    function studentPhoneOf(record) {
+        return phoneLike(get(record, ["Participant information: Student cell phone", "Contact information: Student’s phone number", "Contact information: Student's phone number", "Student phone", "Participant phone", "Phone", "Phone number"], 3));
     }
     function firstNameOf(record) {
         return record ? cleanCell(get(record, ["Participant First name", "Participant First Name", "First name", "First Name"], 0)) : "";
@@ -733,7 +736,7 @@
             if (looksLikePacificId(pickedUpBy))
                 return pickedUpBy;
         }
-        return normalizeId(get(record, ["Participant external ID", "Participant External ID", "External ID", "Pacific ID", "Student ID", "ID"], fallbackIndex));
+        return normalizeId(get(record, ["Photo upload and roommate request: Pacific id: Your pacific id", "Pacific ID", "Pacific id", "Participant external ID", "Participant External ID", "External ID", "Student ID", "ID"], fallbackIndex));
     }
     function get(record, aliases, fallbackIndex) {
         if (!record)
