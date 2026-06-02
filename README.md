@@ -66,6 +66,7 @@ The app intentionally matches the old Python script's important behavior while b
 - Blank/whitespace `Attendance Status` cells are grouped by program/faculty in the morning faculty submission-status section. Checked groups generate sheets for those students; unchecked groups are treated as all present for sheet generation.
 - Rows where `Attendance Status` is `Present` while `Status` is `Checked out` or `Not checked in` are shown as website-only Jumbula cleanup issues and do not generate sheets.
 - Roommate status uses today's attendance rows and distinguishes Present, Late, Needs attendance check, Not reported yet, Checked out, and Not checked in.
+- Roommates are matched from `Participant information: Room number` by the normalized room-pair key.  For example, `EIS-0316B` matches only `EIS-0316A`; the app no longer drops the final character for every room string, which previously could create many false roommates.
 - Students marked `Checked out` or `Not checked in` are excluded from the attendance check sheet list, but a warning is shown if they are also marked `Present`.
 - Housing and activity names are editable in the page under **Settings and program lists** and persist locally. The built-in defaults were updated to the current activity/housing list; use **Reset lists to defaults** if your browser still shows an older saved list.
 

@@ -53,7 +53,7 @@ For each attendance row that needs a check:
 - Pull gender, student phone, parent/guardian details, and all enrolled programs from matching activity rows.
 - If a yesterday housing CSV was uploaded, match yesterday's housing attendance by external ID, with participant name as a fallback. If it was omitted, the generated sheets omit yesterday housing-check fields.
 - Match faculty contacts by current activity/program.
-- Find roommates by comparing the room stem (old behavior: drop the final room character, usually the bed suffix) among housing rows. Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
+- Find roommates by parsing the explicit bed suffix in `Participant information: Room number`.  For current room numbers such as `EIS-0316B`, the expected roommate is only the paired suffix in the same building/room base, e.g. `EIS-0316A`.  The app no longer blindly drops the last character for unknown room formats, because that can group many unrelated rooms.  Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
 
 ## Complexity
 
@@ -63,11 +63,11 @@ For `n` today's rows, `m` database rows, `y` yesterday rows, and `f` faculty row
 - Row normalization is `O(n + m + y + f)`.
 - Faculty submission grouping is `O(u + f)` for `u` blank-status rows and `f` faculty rows.
 - ID lookups use maps, so student enrichment is approximately `O(k + m)` where `k` is the number of students needing an attendance check.
-- Roommate lookup currently scans housing rows for each student needing an attendance check, `O(kh)` where `h` is the number of housing rows. This is acceptable for summer-program scale; if the roster grows significantly, index housing rows by room stem to make it `O(k + h)`.
+- Roommate lookup currently scans housing rows for each student needing an attendance check, `O(kh)` where `h` is the number of housing rows. This is acceptable for summer-program scale; if the roster grows significantly, index housing rows by normalized room-pair key to make it `O(k + h)`.
 
 ## Error sources and limitations
 
 - The exact Jumbula export schema may change. The app mitigates this with header aliases and fallback indices, but warnings should be reviewed.
 - Phone numbers and IDs are kept as strings to avoid numeric precision/formatting errors.
 - `localStorage` is convenient but persistent; users should clear stored data on shared computers.
-- Roommate matching copies the old bed-suffix heuristic. If room formats change, this should be replaced with a normalized building+room key.
+- Roommate matching now requires a parseable bed suffix and a normalized building+room key.  `A` pairs with `B`, `C` with `D`, and `E` with `F`.  For room numbers that include a building prefix, such as `EIS-0316B`, the key is the normalized prefix plus numeric room.  For room numbers without a prefix, the residence hall is included in the key to avoid cross-building matches.
