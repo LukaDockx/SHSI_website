@@ -409,7 +409,7 @@
             const activityRow = activityRows[0] || null;
             const housingRow = housingRows[0] || null;
             if (!id)
-                warnings.push(`Attendance row for ${fullName || "(unknown student)"} has no Participant external ID.`);
+                warnings.push(`Attendance row for ${fullName || "(unknown student)"} has no Pacific ID / participant external ID.`);
             if (id && !activityRow)
                 warnings.push(`No database activity row matched ${fullName || id}.`);
             if (id && !housingRow)
@@ -430,7 +430,7 @@
                 lastName: fullName.split(/\s+/).slice(1).join(" ") || lastNameOf(activityRow) || "",
                 currentActivity,
                 allPrograms: unique(activityRows.map(programOf).map(stripProgramDate).filter(Boolean)),
-                gender: activityRow ? cleanCell(get(activityRow, ["Gender", "Sex"], 2)) : "",
+                gender: activityRow ? cleanCell(get(activityRow, ["Participant information: Gender", "Gender", "Sex"], 2)) : "",
                 studentPhone: activityRow ? studentPhoneOf(activityRow) : "",
                 status: cleanCell(get(attendanceRow, ["Status"], 2)),
                 attendanceStatus: cleanCell(get(attendanceRow, ["Attendance Status"], 3)) || "Not specified",
@@ -613,11 +613,14 @@
         return map;
     }
     function findRoommates(context) {
-        const selfRoom = roomOf(context.housingRow);
-        const selfPairKey = roommatePairKey(houseOf(context.housingRow), selfRoom);
-        const selfBed = roomBedInfo(selfRoom);
-        const expectedRoommateBed = pairedBedSuffix(selfBed.suffix);
-        if (!selfPairKey || !expectedRoommateBed)
+        // Stable roommate lookup for the current registration database:
+        // rows contain Residence hall + Room number directly.  Match everyone in
+        // the same residence hall and same room *base* (drop the final bed suffix
+        // when present, e.g. EIS-0316A/EIS-0316B -> EIS-0316).  Do not require a
+        // particular A/B pairing; some rooms have unusual suffixes or formats.
+        const selfHallKey = residenceHallKey(houseOf(context.housingRow));
+        const selfRoomBase = roomBaseKey(roomOf(context.housingRow));
+        if (!selfHallKey || !selfRoomBase)
             return [];
         const seen = new Set();
         return context.dbHousing
@@ -627,14 +630,11 @@
             const candidateId = participantExternalId(candidate, 23);
             if (candidateId && context.selfId && candidateId === context.selfId)
                 return false;
-            const candidateBed = roomBedInfo(roomOf(candidate));
-            if (candidateBed.suffix !== expectedRoommateBed)
-                return false;
-            return roommatePairKey(houseOf(candidate), roomOf(candidate)) === selfPairKey;
+            return residenceHallKey(houseOf(candidate)) === selfHallKey && roomBaseKey(roomOf(candidate)) === selfRoomBase;
         })
             .filter((candidate) => {
             const id = participantExternalId(candidate, 23);
-            const key = id || `${fullNameFromDatabase(candidate).toLowerCase()}|${normalizeRoomNumber(roomOf(candidate))}`;
+            const key = id || `${fullNameFromDatabase(candidate).toLowerCase()}|${roomBaseKey(roomOf(candidate))}`;
             if (seen.has(key))
                 return false;
             seen.add(key);
@@ -768,13 +768,33 @@
         // "Participant external ID" contains Jumbula's internal alphanumeric ID.
         // Attendance reports call this with fallbackIndex 8, so prefer the
         // numeric Picked up by / column-8 value there. Registration database rows
-        // still use their normal Participant external ID / last-column matching.
+        // prefer the explicit Pacific ID field from the current database layout,
+        // falling back to Participant external ID / the supplied fallback column.
         if (fallbackIndex === 8) {
-            const pickedUpBy = normalizeId(get(record, ["Picked up by", "Picked Up By"], 8));
+            const pickedUpBy = normalizeId(firstNonBlank(record, ["Picked up by", "Picked Up By"], 8));
             if (looksLikePacificId(pickedUpBy))
                 return pickedUpBy;
         }
-        return normalizeId(get(record, ["Photo upload and roommate request: Pacific id: Your pacific id", "Pacific ID", "Pacific id", "Participant external ID", "Participant External ID", "External ID", "Student ID", "ID"], fallbackIndex));
+        return normalizeId(firstNonBlank(record, [
+            "Photo upload and roommate request: Pacific id: Your pacific id",
+            "Pacific ID",
+            "Pacific id",
+            "Participant external ID",
+            "Participant External ID",
+            "External ID",
+            "Student ID",
+            "ID"
+        ], fallbackIndex));
+    }
+    function firstNonBlank(record, aliases, fallbackIndex) {
+        for (const alias of aliases) {
+            const value = get(record, [alias], undefined);
+            if (cleanCell(value))
+                return value;
+        }
+        if (typeof fallbackIndex === "number" && record && record.__row && fallbackIndex >= 0 && fallbackIndex < record.__row.length)
+            return record.__row[fallbackIndex];
+        return "";
     }
     function get(record, aliases, fallbackIndex) {
         if (!record)
@@ -805,57 +825,18 @@
     function residenceHallKey(house) {
         return canon(cleanCell(house).replace(/\s+\d+$/, ""));
     }
-    function roomBedInfo(room) {
+    function roomBaseKey(room) {
         const normalized = normalizeRoomNumber(room);
         if (!normalized)
-            return { normalized: "", prefix: "", number: "", suffix: "", pairBase: "" };
-        // Preferred live database format: EIS-0316B.  The roommate is the same
-        // building/room number with the paired bed suffix, e.g. EIS-0316A.
-        let match = normalized.match(/^([A-Z]+)-?0*([0-9]+)-?([A-Z])$/);
-        if (match) {
-            const prefix = match[1];
-            const number = String(parseInt(match[2], 10));
-            const suffix = match[3];
-            return {
-                normalized,
-                prefix,
-                number,
-                suffix,
-                pairBase: `${prefix}-${number}`
-            };
-        }
-        // Fallback for exports that put only the room number in the room field,
-        // e.g. 0316B.  In that case the residence hall is needed to avoid matching
-        // the same number in different buildings.
-        match = normalized.match(/^0*([0-9]+)-?([A-Z])$/);
-        if (match) {
-            const number = String(parseInt(match[1], 10));
-            const suffix = match[2];
-            return {
-                normalized,
-                prefix: "",
-                number,
-                suffix,
-                pairBase: number
-            };
-        }
-        // Do not blindly drop the last character for unknown formats.  That old
-        // heuristic incorrectly grouped many unrelated rooms when a room lacked a
-        // bed suffix or used a new format.
-        return { normalized, prefix: "", number: "", suffix: "", pairBase: "" };
-    }
-    function pairedBedSuffix(suffix) {
-        const pairs = { A: "B", B: "A", C: "D", D: "C", E: "F", F: "E" };
-        return pairs[String(suffix || "").toUpperCase()] || "";
-    }
-    function roommatePairKey(house, room) {
-        const info = roomBedInfo(room);
-        if (!info.pairBase || !info.suffix)
             return "";
-        if (info.prefix)
-            return info.pairBase;
-        const hall = residenceHallKey(house);
-        return hall ? `${hall}|${info.pairBase}` : "";
+        // Stable behavior from the original workflow: compare room numbers after
+        // removing a final bed suffix.  This matches EIS-0316A with EIS-0316B and
+        // also handles plain formats like 0316A.  If there is no final letter, use
+        // the whole room string rather than inventing a match.
+        if (/^[A-Z]+-?0*[0-9]+-?[A-Z]$/.test(normalized) || /^0*[0-9]+-?[A-Z]$/.test(normalized)) {
+            return normalized.slice(0, -1);
+        }
+        return normalized;
     }
     function phoneLike(value) {
         const cleaned = cleanCell(value);
