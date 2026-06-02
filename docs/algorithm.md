@@ -48,7 +48,12 @@ Rows where `Attendance Status` is `Present` but `Status` is `Checked out` or `No
 For each attendance row that needs a check:
 
 - Match database rows by `Participant external ID` / Pacific ID.
-- Split database rows into housing rows and activity rows using the editable housing list.
+- Split database rows into housing-capable and activity-capable rows.  The
+  current registration export stores `Participant information: Residence hall`
+  and `Participant information: Room number` directly in the participant row, so
+  any database row with those fields is considered usable for housing even when
+  `Program` is an activity rather than a housing program.  Older exports where
+  `Program` itself is a housing name are still supported.
 - Pull house/room from the matching housing row.
 - Pull gender, student phone, parent/guardian details, and all enrolled programs from matching activity rows.
 - If a yesterday housing CSV was uploaded, match yesterday's housing attendance by external ID, with participant name as a fallback. If it was omitted, the generated sheets omit yesterday housing-check fields.

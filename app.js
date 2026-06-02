@@ -382,8 +382,18 @@
             const attendance = cleanCell(get(record, ["Attendance Status"], 3));
             return attendance !== "Present" && attendance !== "Late";
         });
-        const dbHousing = database.records.filter((record) => houses.has(canonProgram(record.__program)));
-        const dbActivity = database.records.filter((record) => !houses.has(canonProgram(record.__program)));
+        // The current registration database export stores housing directly in the
+        // participant row:
+        //
+        //   Participant information: Residence hall
+        //   Participant information: Room number
+        //
+        // Older exports had separate rows where Program was a housing program.  Do
+        // not require Program to be one of the configured houses, otherwise normal
+        // activity rows with Residence hall / Room number will fail to show the
+        // student's own housing and roommate lookup will necessarily fail too.
+        const dbHousing = database.records.filter((record) => hasHousingInfo(record) || houses.has(canonProgram(record.__program)));
+        const dbActivity = database.records.filter((record) => hasActivityInfo(record) || !houses.has(canonProgram(record.__program)));
         const dbHousingById = groupById(dbHousing, 23);
         const dbActivityById = groupById(dbActivity, 23);
         const yesterdayById = groupById(yesterday.records, 8);
@@ -730,6 +740,12 @@
     }
     function roomOf(record) {
         return cleanCell(get(record, ["Participant information: Room number", "Room number", "Housing room", "Dorm room", "Room"], 5));
+    }
+    function hasHousingInfo(record) {
+        return Boolean(roomOf(record) || cleanCell(get(record, ["Participant information: Residence hall", "Residence hall", "Residence Hall"], 4)));
+    }
+    function hasActivityInfo(record) {
+        return Boolean(programOf(record));
     }
     function studentPhoneOf(record) {
         return phoneLike(get(record, ["Participant information: Student cell phone", "Contact information: Student’s phone number", "Contact information: Student's phone number", "Student phone", "Participant phone", "Phone", "Phone number"], 3));
