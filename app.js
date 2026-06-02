@@ -424,7 +424,7 @@
                 warnings.push(`No faculty contact row matched program: ${currentActivity || "(blank)"}.`);
             const room = housingRow ? roomOf(housingRow) : "";
             const house = housingRow ? houseOf(housingRow) : "";
-            const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, todayActivityById, absentNames, selfId: id }) : [];
+            const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, dbAnyById, todayActivityById, absentNames, selfId: id }) : [];
             return {
                 id,
                 fullName,
@@ -433,7 +433,7 @@
                 currentActivity,
                 allPrograms: unique(activityRows.map(programOf).map(stripProgramDate).filter(Boolean)),
                 gender: activityRow ? cleanCell(get(activityRow, ["Participant information: Gender", "Gender", "Sex"], 2)) : "",
-                studentPhone: activityRow ? studentPhoneOf(activityRow) : "",
+                studentPhone: studentPhoneFromRows([housingRow, activityRow, ...databaseRows]),
                 status: cleanCell(get(attendanceRow, ["Status"], 2)),
                 attendanceStatus: cleanCell(get(attendanceRow, ["Attendance Status"], 3)) || "Not specified",
                 checkIn: cleanCell(get(attendanceRow, ["Check in", "Check-in", "Check In"], 5)),
@@ -647,7 +647,9 @@
         })
             .map((candidate) => {
             const id = participantExternalId(candidate, 23);
-            const activity = (context.dbActivityById.get(id) || [])[0] || null;
+            const activityRows = context.dbActivityById.get(id) || [];
+            const activity = activityRows[0] || null;
+            const allRows = context.dbAnyById && id ? (context.dbAnyById.get(id) || []) : [];
             const name = fullNameFromDatabase(candidate);
             return {
                 id,
@@ -661,7 +663,7 @@
                     absentNames: context.absentNames
                 }),
                 program: activity ? stripProgramDate(programOf(activity)) : "",
-                phone: activity ? studentPhoneOf(activity) : ""
+                phone: studentPhoneFromRows([candidate, ...activityRows, ...allRows])
             };
         });
     }
@@ -761,6 +763,14 @@
     }
     function hasActivityInfo(record) {
         return Boolean(programOf(record));
+    }
+    function studentPhoneFromRows(rows) {
+        for (const row of rows || []) {
+            const phone = studentPhoneOf(row);
+            if (phone)
+                return phone;
+        }
+        return "";
     }
     function studentPhoneOf(record) {
         return phoneLike(get(record, ["Participant information: Student cell phone", "Contact information: Student’s phone number", "Contact information: Student's phone number", "Student phone", "Participant phone", "Phone", "Phone number"], 3));
