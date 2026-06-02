@@ -393,9 +393,10 @@
         // activity rows with Residence hall / Room number will fail to show the
         // student's own housing and roommate lookup will necessarily fail too.
         const dbHousing = database.records.filter((record) => hasHousingInfo(record) || houses.has(canonProgram(record.__program)));
-        const dbActivity = database.records.filter((record) => hasActivityInfo(record) || !houses.has(canonProgram(record.__program)));
+        const dbActivity = database.records.filter((record) => hasActivityInfo(record) && !houses.has(canonProgram(record.__program)));
         const dbHousingById = groupById(dbHousing, 23);
         const dbActivityById = groupById(dbActivity, 23);
+        const dbAnyById = groupById(database.records, 23);
         const yesterdayById = groupById(yesterday.records, 8);
         const yesterdayByName = groupBy(yesterday.records, (record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase());
         const facultyByProgram = groupFaculty(faculty.records);
@@ -406,12 +407,13 @@
             const fullName = cleanCell(get(attendanceRow, ["Participant", "Name"], 0));
             const activityRows = dbActivityById.get(id) || [];
             const housingRows = dbHousingById.get(id) || [];
-            const activityRow = activityRows[0] || null;
-            const housingRow = housingRows[0] || null;
+            const databaseRows = dbAnyById.get(id) || [];
+            const activityRow = activityRows[0] || databaseRows.find((record) => !houses.has(canonProgram(programOf(record)))) || databaseRows[0] || null;
+            const housingRow = housingRows[0] || databaseRows.find((record) => hasHousingInfo(record)) || null;
             if (!id)
                 warnings.push(`Attendance row for ${fullName || "(unknown student)"} has no Pacific ID / participant external ID.`);
             if (id && !activityRow)
-                warnings.push(`No database activity row matched ${fullName || id}.`);
+                warnings.push(`No database row matched ${fullName || id}.`);
             if (id && !housingRow)
                 warnings.push(`No database housing row matched ${fullName || id}.`);
             const currentActivity = stripProgramDate(programOf(attendanceRow));
@@ -505,15 +507,18 @@
         });
     }
     function recordsFromCsv(text, label, warnings) {
-        const rows = parseCsv(text).filter((row) => row.some((cell) => cleanCell(cell)));
-        if (!rows.length)
+        const rawRows = parseCsv(text);
+        const rows = rawRows.length ? rawRows : [];
+        if (!rows.length || !rows.some((row) => row.some((cell) => cleanCell(cell))))
             throw new Error(`${label} CSV is empty.`);
-        let headerIndex = 0;
-        if (cleanCell(rows[0][0]).includes("Live")) {
-            const detected = rows.findIndex((row) => row.map(normalizeHeader).some((cell) => canon(cell) === "participant") && row.map(normalizeHeader).some((cell) => canon(cell) === "program"));
-            headerIndex = detected >= 0 ? detected : Math.min(4, rows.length - 1);
+        let headerIndex = rows.findIndex((row) => row.map(normalizeHeader).some((cell) => canon(cell) === "program"));
+        if (headerIndex < 0)
+            headerIndex = rows.findIndex((row) => row.some((cell) => cleanCell(cell)));
+        if (headerIndex < 0)
+            throw new Error(`${label} CSV is empty.`);
+        const hasLiveTitle = rows.slice(0, Math.min(headerIndex + 1, 6)).some((row) => cleanCell(row[0]).includes("Live"));
+        if (hasLiveTitle)
             warnings.push(`${label}: skipped ${headerIndex} Jumbula title/filter row(s) before the header.`);
-        }
         const headers = rows[headerIndex].map(normalizeHeader);
         const dataRows = rows.slice(headerIndex + 1).filter((row) => row.some((cell) => cleanCell(cell)));
         const records = dataRows.map((row, index) => {
@@ -698,7 +703,7 @@
                 lastName: cleanCell(get(row, ["Parent/guardian information: Last name", "Parent 1 last name", "P1 lastname", "P1 last name", "Guardian 1 last name"], 8)),
                 relationship: cleanCell(get(row, ["Parent/guardian information: Relationship", "Parent 1 relationship", "P1 rel", "Guardian 1 relationship"], 9)),
                 language: cleanCell(get(row, ["Parent/guardian information: Parent/guardian primary language", "Parent 1 language", "Guardian 1 language"], 11)),
-                phone: phoneLike(get(row, ["Parent/guardian information: Parent/guardian cell phone", "Parent 1 phone", "P1 phone", "Guardian 1 phone"], 10)),
+                phone: phoneLike(get(row, ["Parent/guardian information: Parent/guardian cell phone", "Parent/guardian information: Primary phone", "Parent 1 phone", "P1 phone", "Guardian 1 phone"], 10)),
                 email: ""
             };
         }
@@ -733,7 +738,17 @@
         };
     }
     function programOf(record) {
-        return cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], 19));
+        const direct = cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], undefined));
+        if (direct)
+            return direct;
+        // Attendance exports have Program at column 4; the registration database
+        // example has Program at column 18.  Use source-aware fallback positions so
+        // a missing/misdetected header cannot accidentally read Schedule or another
+        // column and produce bogus program names like ", Jun 1, ...".
+        const source = cleanCell(record && record.__sourceLabel).toLowerCase();
+        if (source.includes("attendance") || source.includes("housing"))
+            return cleanCell(get(record, [], 4));
+        return cleanCell(get(record, [], 18));
     }
     function houseOf(record) {
         return cleanCell(get(record, ["Participant information: Residence hall", "House", "Housing", "Dorm", "Residence hall", "Residence Hall"], 4)) || programOf(record);
