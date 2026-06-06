@@ -27,6 +27,13 @@ h1 { font-size: clamp(34px, 6vw, 58px); line-height: 1; margin: 0; }
 h2 { margin: 0 0 8px; }
 .lede { max-width: 720px; color: var(--muted); font-size: 18px; line-height: 1.5; }
 .privacy-card { background: #eef6ff; border: 1px solid #b9d7ff; padding: 18px; border-radius: 18px; line-height: 1.4; }
+.mode-switch-panel { max-width: 1180px; margin: 0 auto 18px; padding: 0 24px; display: grid; gap: 8px; }
+.mode-toggle-button { width: 100%; font-size: 20px; padding: 18px 22px; border-radius: 18px; background: #0f766e; box-shadow: 0 8px 22px rgba(15,118,110,.22); }
+.mode-toggle-button:hover:not(:disabled) { background: #115e59; }
+.mode-switch-panel p { margin: 0; color: var(--muted); }
+body.housing-mode .mode-toggle-button { background: #7c2d12; box-shadow: 0 8px 22px rgba(124,45,18,.22); }
+body.housing-mode .mode-toggle-button:hover:not(:disabled) { background: #9a3412; }
+body.housing-mode .privacy-card { background: #fff7ed; border-color: #fed7aa; }
 .panel { background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); padding: 22px; }
 .panel-heading { display: flex; gap: 16px; justify-content: space-between; align-items: start; margin-bottom: 18px; }
 .panel-heading p { margin: 0; color: var(--muted); }
@@ -134,7 +141,7 @@ footer { color: var(--muted); font-size: 13px; }
   .faculty-status-header strong, .faculty-status-panel.all-submitted > strong { white-space: normal; }
 }
 @media (max-width: 560px) {
-  .app-header, main, footer { padding: 16px; }
+  .app-header, main, footer, .mode-switch-panel { padding: 16px; }
   .upload-grid, .summary-grid { grid-template-columns: 1fr; }
   .panel-heading, .actions, .report-toolbar, .workflow-heading, .report-section-header { flex-direction: column; align-items: stretch; }
   .faculty-student-details { margin-left: 0; }
@@ -148,7 +155,7 @@ footer { color: var(--muted); font-size: 13px; }
   @page { size: Letter portrait; margin: 0.25in; }
 
   html, body { background: #fff; color: #000; width: auto; }
-  .app-header, .controls-panel, .messages, footer, .report-toolbar, .summary-grid, .faculty-status-panel, .cleanup-panel, .report-empty { display: none !important; }
+  .app-header, .mode-switch-panel, .controls-panel, .messages, footer, .report-toolbar, .summary-grid, .faculty-status-panel, .cleanup-panel, .report-empty { display: none !important; }
   main { max-width: none; padding: 0; margin: 0; }
   .report { margin: 0; }
   .workflow-section { box-shadow: none; border: 0; padding: 0; margin: 0; background: transparent; }

@@ -27,6 +27,10 @@ For each CSV:
 
 Before generating student sheets, active non-housing rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. The faculty contacts CSV is joined on program name so the page can show which faculty/contact has not submitted attendance yet and how many students are still unreported for that program. Each grouped program gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
 
+## Attendance modes
+
+The app has two modes. In **activity attendance mode**, the checked rows are today's non-housing activity/program rows. In **housing attendance mode**, the checked rows are today's housing rows. Both modes use the same attendance-status rule: `Present` and `Late` are safe; any other non-suppressed status generates a sheet. Housing mode does not use the yesterday housing CSV. Instead, each generated sheet includes a **Today's activity attendance** section populated from the student's non-housing row in today's attendance CSV.
+
 ## Attendance check selection
 
 Let `todayRows` be today's attendance rows after normalization.

@@ -1,6 +1,6 @@
 # SHSI Attendance Checker
 
-A static, browser-only replacement for `oldpythoncode.py`.
+A static, browser-only replacement for `oldpythoncode.py`, with activity/daytime attendance mode and housing/evening attendance mode.
 
 ## What it does
 
@@ -11,13 +11,20 @@ A static, browser-only replacement for `oldpythoncode.py`.
    - faculty contacts export
 2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh.
 3. Press **Review faculty submissions**.
-4. Review the separate **2. Faculty attendance review** section to see which programs still have blank Attendance Status cells, how many students are unreported, and any Jumbula cleanup rows where a student is marked Present while also Checked out/Not checked in.
+4. Review the separate **2. Faculty/Housing attendance review** section to see which programs still have blank Attendance Status cells, how many students are unreported, and any Jumbula cleanup rows where a student is marked Present while also Checked out/Not checked in.
 5. Expand any faculty/program row to see the unreported student names. Leave the program checked to generate sheets for its blank/unreported students, or uncheck it to treat those blank rows as all present for sheet generation.
 6. Press **Generate attendance check sheets** at the bottom of the faculty section; sheets then appear in **3. Reports**.
 7. Review the generated attendance check sheets in the page.
 8. Press **Export/Print PDF** and choose **Save as PDF** in the browser print dialog. The print stylesheet formats each student needing a check as one Letter-size attendance check sheet.
 
 No server is used and no CSV/student data is included in the source code or sent over the network.
+
+## Attendance modes
+
+Use the large mode button near the top of the page to switch modes.
+
+- **Activity attendance mode** is the default daytime workflow. It checks activity/program attendance rows and can optionally include yesterday evening housing attendance on each sheet.
+- **Housing attendance mode** is the evening bed-check workflow. It checks housing attendance rows from today's attendance CSV, does not use the yesterday housing CSV, and replaces the PDF's yesterday-housing section with **Today's activity attendance** so staff can see whether the student was present in their daytime program.
 
 ## GitHub Pages
 

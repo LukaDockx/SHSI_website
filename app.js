@@ -7,6 +7,7 @@
     "use strict";
     const STORAGE_KEY = "shsiMissingStudentFinder.v1";
     const LISTS_KEY = "shsiAttendanceChecker.programLists.v2";
+    const MODE_KEY = "shsiAttendanceChecker.mode.v1";
     const DEFAULT_HOUSES = [
         "Casa Jackson 1",
         "Casa Jackson 2",
@@ -92,16 +93,61 @@
         files: loadStoredFiles(),
         lastReport: null,
         lastInputOptions: null,
-        sheetsGenerated: false
+        sheetsGenerated: false,
+        mode: loadMode()
     };
     document.addEventListener("DOMContentLoaded", init);
     function init() {
         setupDropZones();
         setupLists();
         byId("runButton").addEventListener("click", runReportFromUi);
+        byId("modeToggleButton").addEventListener("click", toggleMode);
         byId("clearAllButton").addEventListener("click", clearStoredData);
         byId("resetListsButton").addEventListener("click", resetProgramLists);
+        updateModeUi();
+        renderInitialReportPlaceholders();
         updateFileStatuses();
+    }
+    function loadMode() {
+        try {
+            return localStorage.getItem(MODE_KEY) === "housing" ? "housing" : "activity";
+        }
+        catch (_error) {
+            return "activity";
+        }
+    }
+    function toggleMode() {
+        state.mode = state.mode === "housing" ? "activity" : "housing";
+        try {
+            localStorage.setItem(MODE_KEY, state.mode);
+        }
+        catch (_error) { /* ignore */ }
+        state.lastInputOptions = null;
+        state.lastReport = null;
+        state.sheetsGenerated = false;
+        setPrintDisabled(true);
+        updateModeUi();
+        updateFileStatuses();
+        renderInitialReportPlaceholders();
+        showMessages([{ type: "ok", text: `${modeLabel()} selected.` }]);
+    }
+    function modeLabel() {
+        return state.mode === "housing" ? "Housing attendance mode" : "Activity attendance mode";
+    }
+    function updateModeUi() {
+        document.body.classList.toggle("housing-mode", state.mode === "housing");
+        const button = document.getElementById("modeToggleButton");
+        if (button)
+            button.textContent = state.mode === "housing" ? "Switch to activity attendance mode" : "Switch to housing attendance mode";
+        const description = document.getElementById("modeDescription");
+        if (description) {
+            description.textContent = state.mode === "housing"
+                ? "Housing attendance mode: evening bed check. Generate sheets for students missing from housing, and include today's activity attendance in the PDF."
+                : "Activity attendance mode: generate sheets for students missing from their daytime programs.";
+        }
+        const runButton = document.getElementById("runButton");
+        if (runButton)
+            runButton.textContent = state.mode === "housing" ? "Review housing submissions" : "Review faculty submissions";
     }
     function byId(id) {
         const element = document.getElementById(id);
@@ -117,8 +163,8 @@
     function renderInitialReportPlaceholders(message) {
         byId("report").innerHTML = `
       <div class="workflow-section disabled-section">
-        <h2>2. Faculty attendance review</h2>
-        <p>${escapeHtml(message || "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.")}</p>
+        <h2>2. ${state.mode === "housing" ? "Housing attendance review" : "Faculty attendance review"}</h2>
+        <p>${escapeHtml(message || (state.mode === "housing" ? "Upload today attendance, registration database, and faculty contacts; yesterday housing is not used in housing mode." : "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional."))}</p>
       </div>
       <div class="workflow-section disabled-section">
         <div class="report-section-header">
@@ -305,7 +351,8 @@
             yesterdayText: state.files.yesterday && state.files.yesterday.text ? state.files.yesterday.text : "",
             databaseText: state.files.database.text,
             facultyText: state.files.faculty.text,
-            programLists: currentProgramLists()
+            programLists: currentProgramLists(),
+            mode: state.mode
         };
     }
     function generateSheetsFromFacultySelections() {
@@ -336,12 +383,14 @@
     }
     function buildReport(options) {
         const warnings = [];
+        const mode = options.mode === "housing" ? "housing" : "activity";
+        const isHousingMode = mode === "housing";
         const today = recordsFromCsv(options.todayText, "today attendance", warnings);
         const yesterday = options.yesterdayText
             ? recordsFromCsv(options.yesterdayText, "yesterday housing", warnings)
             : { headers: [], records: [], label: "yesterday housing" };
         const hasYesterdayHousing = Boolean(options.yesterdayText);
-        if (!hasYesterdayHousing)
+        if (!hasYesterdayHousing && !isHousingMode)
             warnings.push("Yesterday housing CSV was not uploaded; yesterday evening housing check info will be omitted from sheets.");
         const database = recordsFromCsv(options.databaseText, "registration database", warnings);
         const faculty = recordsFromCsv(options.facultyText, "faculty contacts", warnings);
@@ -357,15 +406,19 @@
         if (unknownPrograms.length) {
             warnings.push(`Unknown program names found. They are treated as activities unless they match a housing name. Add them in Settings if needed: ${unknownPrograms.join("; ")}`);
         }
+        const todayHousing = today.records.filter((record) => houses.has(canonProgram(record.__program)));
         const todayNonHousing = today.records.filter((record) => !houses.has(canonProgram(record.__program)));
-        const presentNotCheckedIn = todayNonHousing.filter((record) => {
+        const rowsToCheck = isHousingMode ? todayHousing : todayNonHousing;
+        const presentNotCheckedIn = rowsToCheck.filter((record) => {
             const status = cleanCell(get(record, ["Status"], 2));
             const attendance = cleanCell(get(record, ["Attendance Status"], 3));
             return (status === "Checked out" || status === "Not checked in") && attendance === "Present";
         });
         const presentButCheckedOutIssues = presentNotCheckedIn.map(cleanupIssueInfo);
         const todayActivityById = groupById(todayNonHousing, 8);
-        let activeToday = todayNonHousing.filter((record) => {
+        const todayHousingById = groupById(todayHousing, 8);
+        const roommateStatusById = isHousingMode ? todayHousingById : todayActivityById;
+        let activeToday = rowsToCheck.filter((record) => {
             const status = cleanCell(get(record, ["Status"], 2));
             return status !== "Checked out" && status !== "Not checked in";
         });
@@ -397,6 +450,7 @@
         const dbHousingById = groupById(dbHousing, 23);
         const dbActivityById = groupById(dbActivity, 23);
         const dbAnyById = groupById(database.records, 23);
+        const studentPhoneById = buildStudentPhoneById(database.records);
         const yesterdayById = groupById(yesterday.records, 8);
         const yesterdayByName = groupBy(yesterday.records, (record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase());
         const facultyByProgram = groupFaculty(faculty.records);
@@ -416,7 +470,12 @@
                 warnings.push(`No database row matched ${fullName || id}.`);
             if (id && !housingRow)
                 warnings.push(`No database housing row matched ${fullName || id}.`);
-            const currentActivity = stripProgramDate(programOf(attendanceRow));
+            const activityAttendanceRows = (id && todayActivityById.get(id)) || [];
+            const activityAttendanceRow = activityAttendanceRows[0] || null;
+            const currentActivity = isHousingMode
+                ? (activityAttendanceRow ? stripProgramDate(programOf(activityAttendanceRow)) : stripProgramDate(programOf(activityRow)) || "Unknown activity")
+                : stripProgramDate(programOf(attendanceRow));
+            const checkProgram = stripProgramDate(programOf(attendanceRow));
             const yesterdayRows = (id && yesterdayById.get(id)) || yesterdayByName.get(fullName.toLowerCase()) || [];
             const yesterdayRow = yesterdayRows.find((record) => houses.has(canonProgram(record.__program))) || yesterdayRows[0] || null;
             const facultyRows = facultyByProgram.get(canonProgram(currentActivity)) || [];
@@ -424,16 +483,18 @@
                 warnings.push(`No faculty contact row matched program: ${currentActivity || "(blank)"}.`);
             const room = housingRow ? roomOf(housingRow) : "";
             const house = housingRow ? houseOf(housingRow) : "";
-            const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, dbAnyById, todayActivityById, absentNames, selfId: id }) : [];
+            const roommates = housingRow ? findRoommates({ housingRow, dbHousing, dbActivityById, dbAnyById, studentPhoneById, todayActivityById: roommateStatusById, absentNames, selfId: id }) : [];
             return {
                 id,
                 fullName,
                 firstName: fullName.split(/\s+/)[0] || firstNameOf(activityRow) || "",
                 lastName: fullName.split(/\s+/).slice(1).join(" ") || lastNameOf(activityRow) || "",
+                mode,
                 currentActivity,
+                checkProgram,
                 allPrograms: unique(activityRows.map(programOf).map(stripProgramDate).filter(Boolean)),
                 gender: activityRow ? cleanCell(get(activityRow, ["Participant information: Gender", "Gender", "Sex"], 2)) : "",
-                studentPhone: studentPhoneFromRows([housingRow, activityRow, ...databaseRows]),
+                studentPhone: studentPhoneById.get(id) || studentPhoneFromRows([housingRow, activityRow, ...databaseRows]),
                 status: cleanCell(get(attendanceRow, ["Status"], 2)),
                 attendanceStatus: cleanCell(get(attendanceRow, ["Attendance Status"], 3)) || "Not specified",
                 checkIn: cleanCell(get(attendanceRow, ["Check in", "Check-in", "Check In"], 5)),
@@ -443,6 +504,7 @@
                 room,
                 parent1: parentInfo(activityRow, 1),
                 parent2: parentInfo(activityRow, 2),
+                todayActivity: activityAttendanceInfo(activityAttendanceRow),
                 yesterday: yesterdayInfo(yesterdayRow),
                 faculty: facultyRows.map(facultyInfo),
                 roommates
@@ -453,7 +515,11 @@
             students,
             warnings: unique(warnings),
             diagnostics: {
+                mode,
                 todayRows: today.records.length,
+                activityRows: todayNonHousing.length,
+                housingRows: todayHousing.length,
+                activeRowsChecked: activeToday.length,
                 activeActivityRows: activeToday.length,
                 absentRows: absentRows.length,
                 unspecifiedRows: unspecified.length,
@@ -663,7 +729,7 @@
                     absentNames: context.absentNames
                 }),
                 program: activity ? stripProgramDate(programOf(activity)) : "",
-                phone: studentPhoneFromRows([candidate, ...activityRows, ...allRows])
+                phone: (context.studentPhoneById && context.studentPhoneById.get(id)) || studentPhoneFromRows([candidate, ...activityRows, ...allRows])
             };
         });
     }
@@ -731,6 +797,19 @@
             checkOut: cleanCell(get(row, ["Check out", "Check-out", "Check Out"], 6))
         };
     }
+    function activityAttendanceInfo(row) {
+        if (!row)
+            return { available: false, date: "", status: "", attendanceStatus: "", program: "", checkIn: "", checkOut: "" };
+        return {
+            available: true,
+            date: cleanCell(get(row, ["Date"], 1)),
+            status: cleanCell(get(row, ["Status"], 2)),
+            attendanceStatus: cleanCell(get(row, ["Attendance Status"], 3)) || "Not specified",
+            program: stripProgramDate(programOf(row)),
+            checkIn: cleanCell(get(row, ["Check in", "Check-in", "Check In"], 5)),
+            checkOut: cleanCell(get(row, ["Check out", "Check-out", "Check Out"], 6))
+        };
+    }
     function facultyInfo(row) {
         return {
             program: cleanCell(get(row, ["Program", "Enrolled Program", "Activity", "Class"], 0)) || "N/A",
@@ -763,6 +842,44 @@
     }
     function hasActivityInfo(record) {
         return Boolean(programOf(record));
+    }
+    function buildStudentPhoneById(records) {
+        const map = new Map();
+        // First pass: housing rows usually carry Participant information: Student cell phone.
+        for (const record of records || []) {
+            const id = participantExternalId(record, 23);
+            if (!id || map.has(id))
+                continue;
+            const phone = phoneLike(firstNonBlank(record, ["Participant information: Student cell phone"], undefined));
+            if (phone)
+                map.set(id, phone);
+        }
+        // Second pass: activity rows usually carry Contact information: Student’s phone number.
+        for (const record of records || []) {
+            const id = participantExternalId(record, 23);
+            if (!id || map.has(id))
+                continue;
+            const phone = phoneLike(firstNonBlank(record, [
+                "Contact information: Student’s phone number",
+                "Contact information: Student's phone number",
+                "Student phone",
+                "Participant phone",
+                "Phone",
+                "Phone number"
+            ], undefined));
+            if (phone)
+                map.set(id, phone);
+        }
+        // Final fallback: any recognized student phone field on any row.
+        for (const record of records || []) {
+            const id = participantExternalId(record, 23);
+            if (!id || map.has(id))
+                continue;
+            const phone = studentPhoneOf(record);
+            if (phone)
+                map.set(id, phone);
+        }
+        return map;
     }
     function studentPhoneFromRows(rows) {
         for (const row of rows || []) {
@@ -910,7 +1027,7 @@
     }
     function renderMessagesForReport(report) {
         const messages = [];
-        messages.push({ type: "ok", text: `Report generated: ${report.students.length} attendance check sheet(s).` });
+        messages.push({ type: "ok", text: `${report.diagnostics.mode === "housing" ? "Housing" : "Activity"} report generated: ${report.students.length} attendance check sheet(s).` });
         if (report.diagnostics.presentNotCheckedIn.length) {
             messages.push({ type: "warn", text: `Present but checked out/not checked in: ${report.diagnostics.presentNotCheckedIn.join(", ")}.` });
         }
@@ -937,16 +1054,16 @@
       <section class="workflow-section faculty-review-section" aria-labelledby="faculty-review-heading">
         <div class="workflow-heading">
           <div>
-            <h2 id="faculty-review-heading">2. Faculty attendance review</h2>
-            <p>Uncheck a faculty/program row to treat those blank attendance cells as a reporting mistake and skip sheets for those students.</p>
+            <h2 id="faculty-review-heading">2. ${report.diagnostics.mode === "housing" ? "Housing attendance review" : "Faculty attendance review"}</h2>
+            <p>${report.diagnostics.mode === "housing" ? "Uncheck a housing row to treat those blank housing attendance cells as a reporting mistake and skip sheets for those students." : "Uncheck a faculty/program row to treat those blank attendance cells as a reporting mistake and skip sheets for those students."}</p>
           </div>
         </div>
         <div class="summary-grid faculty-summary-grid">
           ${summaryCard(report.diagnostics.todayRows, "Today CSV data rows")}
-          ${summaryCard(report.diagnostics.activeActivityRows, "Active activity rows checked")}
+          ${summaryCard(report.diagnostics.activeRowsChecked, report.diagnostics.mode === "housing" ? "Active housing rows checked" : "Active activity rows checked")}
           ${summaryCard(report.diagnostics.unspecifiedRows, "Students not yet reported")}
         </div>
-        ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows, options.suppressedUnsubmittedProgramKeys || [])}
+        ${renderFacultySubmissionStatus(report.diagnostics.unsubmittedAttendance, report.diagnostics.unspecifiedRows, options.suppressedUnsubmittedProgramKeys || [], report.diagnostics.mode)}
         ${renderPresentButCheckedOutIssues(report.diagnostics.presentButCheckedOutIssues)}
       </section>
 
@@ -1015,7 +1132,8 @@
         <td>${escapeHtml(times || "—")}</td>
       </tr>`;
     }
-    function renderFacultySubmissionStatus(groups, totalUnreported, suppressedKeys = []) {
+    function renderFacultySubmissionStatus(groups, totalUnreported, suppressedKeys = [], mode = "activity") {
+        const isHousingMode = mode === "housing";
         const suppressed = new Set(suppressedKeys || []);
         const action = `
       <div class="faculty-actions">
@@ -1026,8 +1144,8 @@
             return `
         <section class="faculty-status-panel all-submitted" aria-labelledby="faculty-status-heading">
           <div>
-            <h3 id="faculty-status-heading">Faculty attendance submission status</h3>
-            <p>All active activity rows have an Attendance Status value.</p>
+            <h3 id="faculty-status-heading">${isHousingMode ? "Housing attendance submission status" : "Faculty attendance submission status"}</h3>
+            <p>All active ${isHousingMode ? "housing" : "activity"} rows have an Attendance Status value.</p>
           </div>
           <strong>0 students unreported</strong>
           ${action}
@@ -1037,8 +1155,8 @@
       <section class="faculty-status-panel needs-submission" aria-labelledby="faculty-status-heading">
         <div class="faculty-status-header">
           <div>
-            <h3 id="faculty-status-heading">Faculty attendance not submitted yet</h3>
-            <p>These programs still have blank/whitespace Attendance Status cells in today's CSV.</p>
+            <h3 id="faculty-status-heading">${isHousingMode ? "Housing attendance not submitted yet" : "Faculty attendance not submitted yet"}</h3>
+            <p>These ${isHousingMode ? "housing groups" : "programs"} still have blank/whitespace Attendance Status cells in today's CSV.</p>
           </div>
           <strong>${escapeHtml(totalUnreported)} students unreported</strong>
         </div>
@@ -1048,7 +1166,7 @@
               <tr>
                 <th>Generate sheets?</th>
                 <th>Program</th>
-                <th>Faculty / contact</th>
+                <th>${isHousingMode ? "Housing group" : "Faculty / contact"}</th>
                 <th>Students not reported present/absent</th>
               </tr>
             </thead>
@@ -1102,7 +1220,7 @@
         <div class="sheet-topline">
           <div>
             <h3>${escapeHtml(student.fullName || "Unknown student")}</h3>
-            <p class="subline">Current program: ${escapeHtml(student.currentActivity || "Unknown program")}</p>
+            <p class="subline">${student.mode === "housing" ? "Evening housing check" : "Current program"}: ${escapeHtml(student.mode === "housing" ? student.checkProgram || student.house || "Unknown housing" : student.currentActivity || "Unknown program")}</p>
           </div>
           <div class="sheet-id">${student.id ? `Pacific ID ${escapeHtml(student.id)}` : "No Pacific ID"}</div>
         </div>
@@ -1111,19 +1229,20 @@
             row("Gender", student.gender),
             row("Student phone", student.studentPhone),
             row("Pacific ID", student.id),
-            row("Current program", student.currentActivity),
+            row(student.mode === "housing" ? "Today's activity" : "Current program", student.currentActivity),
+            row(student.mode === "housing" ? "Housing check program" : "Check program", student.checkProgram),
             row("All registered programs", student.allPrograms.join("; ")),
             row("Housing assignment", student.house),
             row("Room", student.room),
             row("Enrollment status", student.status),
-            row("Current check status", student.attendanceStatus),
+            row(student.mode === "housing" ? "Housing check status" : "Current check status", student.attendanceStatus),
             row("Check-in time", student.checkIn),
             row("Check-out time", student.checkOut)
         ])}
         <div class="section-title">Roommate information</div>
         ${renderRoommates(student.roommates)}
         ${renderGuardianContacts(student)}
-        ${renderYesterdayHousingCheck(student.yesterday)}
+        ${student.mode === "housing" ? renderTodayActivityAttendance(student.todayActivity) : renderYesterdayHousingCheck(student.yesterday)}
         <div class="section-title">Program faculty contact</div>
         ${student.faculty.length ? student.faculty.map((faculty) => `
           <div class="info-grid compact-grid">
@@ -1133,6 +1252,22 @@
             ${row("Contact phone", faculty.phone)}
           </div>`).join("") : `<p class="muted">No matching faculty contact was found.</p>`}
       </article>`;
+    }
+    function renderTodayActivityAttendance(activity) {
+        if (!activity || !activity.available) {
+            return section("Today's activity attendance", [
+                row("Status", "No activity attendance row found"),
+                row("Attendance status", "—")
+            ]);
+        }
+        return section("Today's activity attendance", [
+            row("Date", activity.date),
+            row("Activity", activity.program),
+            row("Status", activity.status),
+            row("Attendance status", activity.attendanceStatus),
+            row("Check-in time", activity.checkIn),
+            row("Check-out time", activity.checkOut)
+        ]);
     }
     function renderYesterdayHousingCheck(yesterday) {
         if (!yesterday || !yesterday.available)
