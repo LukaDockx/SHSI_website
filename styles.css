@@ -206,3 +206,5 @@ footer { color: var(--muted); font-size: 13px; }
   .muted { color: #333; margin: 1pt 0; }
   a { color: #000; text-decoration: none; }
 }
+
+.drop-zone[hidden] { display: none !important; }

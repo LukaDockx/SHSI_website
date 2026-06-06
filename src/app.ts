@@ -7,6 +7,7 @@
   "use strict";
 
   const STORAGE_KEY = "shsiMissingStudentFinder.v1";
+  const STORAGE_KEY_PREFIX = "shsiAttendanceChecker.files";
   const LISTS_KEY = "shsiAttendanceChecker.programLists.v2";
   const MODE_KEY = "shsiAttendanceChecker.mode.v1";
 
@@ -94,12 +95,14 @@
     faculty: { label: "Faculty contacts CSV", inputId: "facultyInput", statusId: "facultyStatus", required: true }
   };
 
+  const INITIAL_MODE = loadMode();
+
   const state = {
-    files: loadStoredFiles(),
+    mode: INITIAL_MODE,
+    files: loadStoredFiles(INITIAL_MODE),
     lastReport: null,
     lastInputOptions: null,
-    sheetsGenerated: false,
-    mode: loadMode()
+    sheetsGenerated: false
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -125,7 +128,9 @@
   }
 
   function toggleMode() {
+    saveStoredFiles();
     state.mode = state.mode === "housing" ? "activity" : "housing";
+    state.files = loadStoredFiles(state.mode);
     try { localStorage.setItem(MODE_KEY, state.mode); } catch (_error) { /* ignore */ }
     state.lastInputOptions = null;
     state.lastReport = null;
@@ -142,17 +147,30 @@
   }
 
   function updateModeUi() {
-    document.body.classList.toggle("housing-mode", state.mode === "housing");
+    const isHousingMode = state.mode === "housing";
+    document.body.classList.toggle("housing-mode", isHousingMode);
     const button = document.getElementById("modeToggleButton");
-    if (button) button.textContent = state.mode === "housing" ? "Switch to activity attendance mode" : "Switch to housing attendance mode";
+    if (button) button.textContent = isHousingMode ? "Switch to activity attendance mode" : "Switch to housing attendance mode";
     const description = document.getElementById("modeDescription");
     if (description) {
-      description.textContent = state.mode === "housing"
-        ? "Housing attendance mode: evening bed check. Generate sheets for students missing from housing, and include today's activity attendance in the PDF."
+      description.textContent = isHousingMode
+        ? "Housing attendance mode: evening bed check. Upload today attendance, registration database, and RA contacts only."
         : "Activity attendance mode: generate sheets for students missing from their daytime programs.";
     }
     const runButton = document.getElementById("runButton");
-    if (runButton) runButton.textContent = state.mode === "housing" ? "Review housing submissions" : "Review faculty submissions";
+    if (runButton) runButton.textContent = isHousingMode ? "Review housing submissions" : "Review faculty submissions";
+
+    const yesterdayZone = document.querySelector('[data-file-key="yesterday"]');
+    if (yesterdayZone) yesterdayZone.hidden = isHousingMode;
+
+    const contactsZone = document.querySelector('[data-file-key="faculty"]');
+    if (contactsZone) {
+      contactsZone.setAttribute("aria-label", isHousingMode ? "Upload RA contacts CSV" : "Upload faculty contacts CSV");
+      const title = contactsZone.querySelector(".drop-title");
+      const help = contactsZone.querySelector(".drop-help");
+      if (title) title.textContent = isHousingMode ? "RA contacts CSV" : "Faculty contacts CSV";
+      if (help) help.textContent = isHousingMode ? "Housing/RA contact mapping, contact person, phone" : "Program, faculty, contact person, phone";
+    }
   }
 
   function byId(id) {
@@ -170,13 +188,13 @@
     byId("report").innerHTML = `
       <div class="workflow-section disabled-section">
         <h2>2. ${state.mode === "housing" ? "Housing attendance review" : "Faculty attendance review"}</h2>
-        <p>${escapeHtml(message || (state.mode === "housing" ? "Upload today attendance, registration database, and faculty contacts; yesterday housing is not used in housing mode." : "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional."))}</p>
+        <p>${escapeHtml(message || (state.mode === "housing" ? "Upload today attendance, registration database, and RA contacts. Yesterday housing is hidden and not used in housing mode." : "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional."))}</p>
       </div>
       <div class="workflow-section disabled-section">
         <div class="report-section-header">
           <div>
             <h2>3. Reports</h2>
-            <p>Attendance check sheets will appear here after faculty review.</p>
+            <p>Attendance check sheets will appear here after Step 2 review.</p>
           </div>
           <button id="printButton" type="button" class="secondary" disabled>Export/Print PDF</button>
         </div>
@@ -232,15 +250,26 @@
       setPrintDisabled(true);
       const ok = saveStoredFiles();
       updateFileStatuses();
-      showMessages(ok ? [{ type: "ok", text: `${FILES[key].label} loaded.` }] : [{ type: "warn", text: `${FILES[key].label} loaded for this session, but localStorage could not save it. The file may be too large for this browser.` }]);
+      showMessages(ok ? [{ type: "ok", text: `${fileLabel(key)} loaded.` }] : [{ type: "warn", text: `${fileLabel(key)} loaded for this session, but localStorage could not save it. The file may be too large for this browser.` }]);
     };
     reader.onerror = () => showMessages([{ type: "error", text: `Could not read ${file.name}.` }]);
     reader.readAsText(file, "utf-8");
   }
 
-  function loadStoredFiles() {
+  function storageKeyForMode(mode) {
+    return `${STORAGE_KEY_PREFIX}.${mode === "housing" ? "housing" : "activity"}.v1`;
+  }
+
+  function loadStoredFiles(mode = state.mode) {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+      const modeSpecific = localStorage.getItem(storageKeyForMode(mode));
+      if (modeSpecific) return JSON.parse(modeSpecific) || {};
+
+      // One-time compatibility migration for users who had files saved before
+      // separate activity/housing storage existed. Only migrate into activity
+      // mode so housing starts with its own clean three-file setup.
+      if (mode !== "housing") return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+      return {};
     } catch (_error) {
       return {};
     }
@@ -248,11 +277,21 @@
 
   function saveStoredFiles() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.files));
+      localStorage.setItem(storageKeyForMode(state.mode), JSON.stringify(state.files));
       return true;
     } catch (_error) {
       return false;
     }
+  }
+
+  function isFileRequired(key) {
+    if (key === "yesterday" && state.mode === "housing") return false;
+    return Boolean(FILES[key] && FILES[key].required);
+  }
+
+  function fileLabel(key) {
+    if (key === "faculty" && state.mode === "housing") return "RA contacts CSV";
+    return FILES[key] ? FILES[key].label : key;
   }
 
   function updateFileStatuses() {
@@ -263,23 +302,23 @@
         status.textContent = `${stored.name || "Stored CSV"} • ${formatBytes(stored.size || stored.text.length)}`;
         status.classList.add("loaded");
       } else {
-        status.textContent = FILES[key].required ? "No file loaded" : "Optional - no file loaded";
+        status.textContent = isFileRequired(key) ? "No file loaded" : "Optional - no file loaded";
         status.classList.remove("loaded");
       }
     });
   }
 
   function clearStoredData() {
-    if (!confirm("Clear all locally stored CSV data and the current report from this browser?")) return;
+    if (!confirm(`Clear locally stored CSV data for ${modeLabel()} and the current report from this browser?`)) return;
     state.files = {};
     state.lastReport = null;
     state.lastInputOptions = null;
     state.sheetsGenerated = false;
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKeyForMode(state.mode));
     updateFileStatuses();
     setPrintDisabled(true);
-    renderInitialReportPlaceholders("Stored CSV data was cleared. Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.");
-    showMessages([{ type: "ok", text: "Stored CSV data cleared." }]);
+    renderInitialReportPlaceholders(state.mode === "housing" ? "Stored housing-mode CSV data was cleared. Upload today attendance, registration database, and RA contacts." : "Stored activity-mode CSV data was cleared. Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.");
+    showMessages([{ type: "ok", text: `${modeLabel()} CSV data cleared.` }]);
   }
 
   function setupLists() {
@@ -351,15 +390,15 @@
   }
 
   function currentInputOptions() {
-    const missing = Object.keys(FILES).filter((key) => FILES[key].required && !(state.files[key] && state.files[key].text));
+    const missing = Object.keys(FILES).filter((key) => isFileRequired(key) && !(state.files[key] && state.files[key].text));
     if (missing.length) {
-      showMessages([{ type: "error", text: `Missing required file(s): ${missing.map((key) => FILES[key].label).join(", ")}.` }]);
+      showMessages([{ type: "error", text: `Missing required file(s): ${missing.map(fileLabel).join(", ")}.` }]);
       return null;
     }
 
     return {
       todayText: state.files.today.text,
-      yesterdayText: state.files.yesterday && state.files.yesterday.text ? state.files.yesterday.text : "",
+      yesterdayText: state.mode === "housing" ? "" : (state.files.yesterday && state.files.yesterday.text ? state.files.yesterday.text : ""),
       databaseText: state.files.database.text,
       facultyText: state.files.faculty.text,
       programLists: currentProgramLists(),
@@ -400,13 +439,14 @@
     const mode = options.mode === "housing" ? "housing" : "activity";
     const isHousingMode = mode === "housing";
     const today = recordsFromCsv(options.todayText, "today attendance", warnings);
-    const yesterday = options.yesterdayText
-      ? recordsFromCsv(options.yesterdayText, "yesterday housing", warnings)
+    const yesterdayText = isHousingMode ? "" : options.yesterdayText;
+    const yesterday = yesterdayText
+      ? recordsFromCsv(yesterdayText, "yesterday housing", warnings)
       : { headers: [], records: [], label: "yesterday housing" };
-    const hasYesterdayHousing = Boolean(options.yesterdayText);
+    const hasYesterdayHousing = Boolean(yesterdayText);
     if (!hasYesterdayHousing && !isHousingMode) warnings.push("Yesterday housing CSV was not uploaded; yesterday evening housing check info will be omitted from sheets.");
     const database = recordsFromCsv(options.databaseText, "registration database", warnings);
-    const faculty = recordsFromCsv(options.facultyText, "faculty contacts", warnings);
+    const faculty = recordsFromCsv(options.facultyText, isHousingMode ? "RA contacts" : "faculty contacts", warnings);
 
     const houses = new Set(options.programLists.houses.map(canonProgram));
     const activities = new Set(options.programLists.activities.map(canonProgram));
@@ -497,8 +537,9 @@
       const checkProgram = stripProgramDate(programOf(attendanceRow));
       const yesterdayRows = (id && yesterdayById.get(id)) || yesterdayByName.get(fullName.toLowerCase()) || [];
       const yesterdayRow = yesterdayRows.find((record) => houses.has(canonProgram(record.__program))) || yesterdayRows[0] || null;
-      const facultyRows = facultyByProgram.get(canonProgram(currentActivity)) || [];
-      if (!facultyRows.length) warnings.push(`No faculty contact row matched program: ${currentActivity || "(blank)"}.`);
+      const contactProgram = isHousingMode ? checkProgram : currentActivity;
+      const facultyRows = facultyByProgram.get(canonProgram(contactProgram)) || [];
+      if (!facultyRows.length) warnings.push(`No ${isHousingMode ? "RA" : "faculty"} contact row matched ${isHousingMode ? "housing/program" : "program"}: ${contactProgram || "(blank)"}.`);
 
       const room = housingRow ? roomOf(housingRow) : "";
       const house = housingRow ? houseOf(housingRow) : "";
@@ -691,7 +732,7 @@
   function groupFaculty(records) {
     const map = new Map();
     records.forEach((record) => {
-      const program = cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], 0));
+      const program = cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class", "Housing", "House", "Residence hall", "Residence Hall"], 0));
       if (!program) return;
       const key = canonProgram(stripProgramDate(program));
       if (!map.has(key)) map.set(key, []);
@@ -832,9 +873,9 @@
   function facultyInfo(row) {
     return {
       program: cleanCell(get(row, ["Program", "Enrolled Program", "Activity", "Class"], 0)) || "N/A",
-      faculty: cleanCell(get(row, ["Faculty", "Instructor"], 1)) || "N/A",
-      contact: cleanCell(get(row, ["Contact person", "Contact", "Faculty contact"], 2)) || "N/A",
-      phone: phoneLike(get(row, ["Phone", "Phone number", "Contact phone", "Contact person phone number", "Faculty phone", "Phone nr"], 3)) || "N/A"
+      faculty: cleanCell(get(row, ["Faculty", "Instructor", "RA", "Resident assistant"], 1)) || "N/A",
+      contact: cleanCell(get(row, ["Contact person", "Contact", "Faculty contact", "RA contact"], 2)) || "N/A",
+      phone: phoneLike(get(row, ["Phone", "Phone number", "Contact phone", "Contact person phone number", "Faculty phone", "RA phone", "Phone nr"], 3)) || "N/A"
     };
   }
 
@@ -1209,7 +1250,7 @@
               </tr>
             </thead>
             <tbody>
-              ${groups.map((group) => renderFacultySubmissionRow(group, !suppressed.has(group.key))).join("")}
+              ${groups.map((group) => renderFacultySubmissionRow(group, !suppressed.has(group.key), mode)).join("")}
             </tbody>
           </table>
         </div>
@@ -1217,13 +1258,13 @@
       </section>`;
   }
 
-  function renderFacultySubmissionRow(group, checked) {
+  function renderFacultySubmissionRow(group, checked, mode = "activity") {
     const facultyText = group.faculty.length
       ? group.faculty.map((faculty) => {
           const pieces = [faculty.faculty, faculty.contact, faculty.phone].map(cleanCell).filter((value) => value && value !== "N/A");
           return pieces.length ? pieces.join(" • ") : "N/A";
         }).join("; ")
-      : "No matching faculty contact";
+      : `No matching ${mode === "housing" ? "RA" : "faculty"} contact`;
     const detailsId = `students-${canon(group.key)}`;
     return `
       <tr>
@@ -1284,14 +1325,14 @@
         ${renderRoommates(student.roommates)}
         ${renderGuardianContacts(student)}
         ${student.mode === "housing" ? renderTodayActivityAttendance(student.todayActivity) : renderYesterdayHousingCheck(student.yesterday)}
-        <div class="section-title">Program faculty contact</div>
+        <div class="section-title">${student.mode === "housing" ? "RA / housing contact" : "Program faculty contact"}</div>
         ${student.faculty.length ? student.faculty.map((faculty) => `
           <div class="info-grid compact-grid">
-            ${row("Program", faculty.program)}
-            ${row("Faculty", faculty.faculty)}
+            ${row(student.mode === "housing" ? "Housing/program" : "Program", faculty.program)}
+            ${row(student.mode === "housing" ? "RA/faculty" : "Faculty", faculty.faculty)}
             ${row("Contact", faculty.contact)}
             ${row("Contact phone", faculty.phone)}
-          </div>`).join("") : `<p class="muted">No matching faculty contact was found.</p>`}
+          </div>`).join("") : `<p class="muted">No matching ${student.mode === "housing" ? "RA" : "faculty"} contact was found.</p>`}
       </article>`;
   }
 

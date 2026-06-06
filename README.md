@@ -4,16 +4,14 @@ A static, browser-only replacement for `oldpythoncode.py`, with activity/daytime
 
 ## What it does
 
-1. Upload the CSV exports:
-   - today's Jumbula attendance export
-   - yesterday's housing attendance export (optional)
-   - registration/database export
-   - faculty contacts export
-2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh.
-3. Press **Review faculty submissions**.
+1. Upload the CSV exports for the selected mode:
+   - activity mode: today's Jumbula attendance export, optional yesterday housing attendance export, registration/database export, and faculty contacts export
+   - housing mode: today's Jumbula attendance export, registration/database export, and RA contacts export
+2. The app stores those files in this browser's `localStorage` so the user does not need to re-upload after a refresh. Activity-mode and housing-mode files are stored separately.
+3. Press **Review faculty submissions** or **Review housing submissions**.
 4. Review the separate **2. Faculty/Housing attendance review** section to see which programs still have blank Attendance Status cells, how many students are unreported, and any Jumbula cleanup rows where a student is marked Present while also Checked out/Not checked in.
-5. Expand any faculty/program row to see the unreported student names. Leave the program checked to generate sheets for its blank/unreported students, or uncheck it to treat those blank rows as all present for sheet generation.
-6. Press **Generate attendance check sheets** at the bottom of the faculty section; sheets then appear in **3. Reports**.
+5. Expand any faculty/program or housing/RA row to see the unreported student names. Leave the row checked to generate sheets for its blank/unreported students, or uncheck it to treat those blank rows as all present for sheet generation.
+6. Press **Generate attendance check sheets** at the bottom of Step 2; sheets then appear in **3. Reports**.
 7. Review the generated attendance check sheets in the page.
 8. Press **Export/Print PDF** and choose **Save as PDF** in the browser print dialog. The print stylesheet formats each student needing a check as one Letter-size attendance check sheet.
 
@@ -24,7 +22,7 @@ No server is used and no CSV/student data is included in the source code or sent
 Use the large mode button near the top of the page to switch modes.
 
 - **Activity attendance mode** is the default daytime workflow. It checks activity/program attendance rows and can optionally include yesterday evening housing attendance on each sheet.
-- **Housing attendance mode** is the evening bed-check workflow. It checks housing attendance rows from today's attendance CSV, does not use the yesterday housing CSV, and replaces the PDF's yesterday-housing section with **Today's activity attendance** so staff can see whether the student was present in their daytime program.
+- **Housing attendance mode** is the evening bed-check workflow. It checks housing attendance rows from today's attendance CSV, hides/does not use the yesterday housing upload box, labels the contact upload as **RA contacts CSV**, and replaces the PDF's yesterday-housing section with **Today's activity attendance** so staff can see whether the student was present in their daytime program. Housing-mode uploads are stored separately from activity-mode uploads.
 
 ## GitHub Pages
 
@@ -40,8 +38,8 @@ The screen report is optimized for review. The PDF/print version is intentionall
 
 - one student per Letter-size page
 - page header: **Attendance Check Sheet**
-- sections: student/current check, roommate information, parent/guardian contacts, optional yesterday evening housing check, and faculty contact
-- **2. Faculty attendance review** is its own website section with per-program sheet-generation checkboxes, expandable unreported-student lists, and Jumbula cleanup rows; it is hidden in the per-student PDF
+- sections: student/current check, roommate information, parent/guardian contacts, optional yesterday evening housing check in activity mode or today's activity attendance in housing mode, and faculty/RA contact
+- **2. Faculty/Housing attendance review** is its own website section with per-program or per-housing-group sheet-generation checkboxes, expandable unreported-student lists, and Jumbula cleanup rows; it is hidden in the per-student PDF
 - **3. Reports** contains sheet-generation status, generated sheets, and PDF export
 - app controls, warnings, and summary cards are hidden in the PDF
 
@@ -69,8 +67,8 @@ The app intentionally matches the old Python script's important behavior while b
 - Whitespace inside cells is normalized.
 - Program names with date suffixes like `Program, Jun 2, 2025...` are normalized to `Program`.
 - `Present` and `Late` are treated as safe attendance statuses; anything else is included in the attendance check report.
-- The yesterday housing CSV is optional; if it is omitted, yesterday evening housing check info is omitted from generated sheets.
-- Blank/whitespace `Attendance Status` cells are grouped by program/faculty in the morning faculty submission-status section. Checked groups generate sheets for those students; unchecked groups are treated as all present for sheet generation.
+- The yesterday housing CSV is optional in activity mode; if it is omitted, yesterday evening housing check info is omitted from generated sheets. Housing mode does not request or use yesterday housing CSV data.
+- Blank/whitespace `Attendance Status` cells are grouped by program/faculty in activity mode and by housing group/RA contact in housing mode. Checked groups generate sheets for those students; unchecked groups are treated as all present for sheet generation.
 - Rows where `Attendance Status` is `Present` while `Status` is `Checked out` or `Not checked in` are shown as website-only Jumbula cleanup issues and do not generate sheets.
 - Roommate status uses today's attendance rows and distinguishes Present, Late, Needs attendance check, Not reported yet, Checked out, and Not checked in.
 - Housing is read directly from the registration database fields `Participant information: Residence hall` and `Participant information: Room number`; the app no longer requires the row's `Program` value to be one of the housing programs before showing the student's own room.
