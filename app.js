@@ -147,7 +147,7 @@
         const description = document.getElementById("modeDescription");
         if (description) {
             description.textContent = isHousingMode
-                ? "Housing attendance mode: evening bed check. Upload today attendance, registration database, and RA contacts only."
+                ? "Housing attendance mode: evening bed check. Upload today attendance and registration database. RA contacts are optional."
                 : "Activity attendance mode: generate sheets for students missing from their daytime programs.";
         }
         const runButton = document.getElementById("runButton");
@@ -161,10 +161,11 @@
             contactsZone.setAttribute("aria-label", isHousingMode ? "Upload RA contacts CSV" : "Upload faculty contacts CSV");
             const title = contactsZone.querySelector(".drop-title");
             const help = contactsZone.querySelector(".drop-help");
-            if (title)
-                title.textContent = isHousingMode ? "RA contacts CSV" : "Faculty contacts CSV";
+            if (title) {
+                title.innerHTML = isHousingMode ? 'RA contacts CSV <span class="optional-tag">optional</span>' : "Faculty contacts CSV";
+            }
             if (help)
-                help.textContent = isHousingMode ? "Housing/RA contact mapping, contact person, phone" : "Program, faculty, contact person, phone";
+                help.textContent = isHousingMode ? "Optional housing/RA contact mapping, contact person, phone" : "Program, faculty, contact person, phone";
         }
     }
     function byId(id) {
@@ -182,7 +183,7 @@
         byId("report").innerHTML = `
       <div class="workflow-section disabled-section">
         <h2>2. ${state.mode === "housing" ? "Housing attendance review" : "Faculty attendance review"}</h2>
-        <p>${escapeHtml(message || (state.mode === "housing" ? "Upload today attendance, registration database, and RA contacts. Yesterday housing is hidden and not used in housing mode." : "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional."))}</p>
+        <p>${escapeHtml(message || (state.mode === "housing" ? "Upload today attendance and registration database. RA contacts are optional. Yesterday housing is hidden and not used in housing mode." : "Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional."))}</p>
       </div>
       <div class="workflow-section disabled-section">
         <div class="report-section-header">
@@ -280,6 +281,8 @@
     function isFileRequired(key) {
         if (key === "yesterday" && state.mode === "housing")
             return false;
+        if (key === "faculty" && state.mode === "housing")
+            return false;
         return Boolean(FILES[key] && FILES[key].required);
     }
     function fileLabel(key) {
@@ -311,7 +314,7 @@
         localStorage.removeItem(storageKeyForMode(state.mode));
         updateFileStatuses();
         setPrintDisabled(true);
-        renderInitialReportPlaceholders(state.mode === "housing" ? "Stored housing-mode CSV data was cleared. Upload today attendance, registration database, and RA contacts." : "Stored activity-mode CSV data was cleared. Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.");
+        renderInitialReportPlaceholders(state.mode === "housing" ? "Stored housing-mode CSV data was cleared. Upload today attendance and registration database. RA contacts are optional." : "Stored activity-mode CSV data was cleared. Upload the required CSV files, then press Review faculty submissions. Yesterday housing is optional.");
         showMessages([{ type: "ok", text: `${modeLabel()} CSV data cleared.` }]);
     }
     function setupLists() {
@@ -389,7 +392,7 @@
             todayText: state.files.today.text,
             yesterdayText: state.mode === "housing" ? "" : (state.files.yesterday && state.files.yesterday.text ? state.files.yesterday.text : ""),
             databaseText: state.files.database.text,
-            facultyText: state.files.faculty.text,
+            facultyText: state.files.faculty && state.files.faculty.text ? state.files.faculty.text : "",
             programLists: currentProgramLists(),
             mode: state.mode
         };
@@ -433,7 +436,11 @@
         if (!hasYesterdayHousing && !isHousingMode)
             warnings.push("Yesterday housing CSV was not uploaded; yesterday evening housing check info will be omitted from sheets.");
         const database = recordsFromCsv(options.databaseText, "registration database", warnings);
-        const faculty = recordsFromCsv(options.facultyText, isHousingMode ? "RA contacts" : "faculty contacts", warnings);
+        const contactText = String(options.facultyText || "");
+        const hasContactFile = Boolean(cleanCell(contactText));
+        const faculty = (hasContactFile || !isHousingMode)
+            ? recordsFromCsv(contactText, isHousingMode ? "RA contacts" : "faculty contacts", warnings)
+            : { headers: [], records: [], label: "RA contacts" };
         const houses = new Set(options.programLists.houses.map(canonProgram));
         const activities = new Set(options.programLists.activities.map(canonProgram));
         const known = new Set([...houses, ...activities]);
@@ -520,7 +527,7 @@
             const yesterdayRow = yesterdayRows.find((record) => houses.has(canonProgram(record.__program))) || yesterdayRows[0] || null;
             const contactProgram = isHousingMode ? checkProgram : currentActivity;
             const facultyRows = facultyByProgram.get(canonProgram(contactProgram)) || [];
-            if (!facultyRows.length)
+            if (!facultyRows.length && (!isHousingMode || hasContactFile))
                 warnings.push(`No ${isHousingMode ? "RA" : "faculty"} contact row matched ${isHousingMode ? "housing/program" : "program"}: ${contactProgram || "(blank)"}.`);
             const room = housingRow ? roomOf(housingRow) : "";
             const house = housingRow ? houseOf(housingRow) : "";

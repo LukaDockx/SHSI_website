@@ -17,7 +17,7 @@ Housing mode uses three inputs:
 
 1. **Today attendance CSV**: current Jumbula live attendance export.
 2. **Registration database CSV**: stable roster/contact/housing/activity export.
-3. **RA contacts CSV**: housing/program-to-RA/contact mapping. The yesterday housing input is hidden and ignored.
+3. **RA contacts CSV**: optional housing/program-to-RA/contact mapping. The yesterday housing input is hidden and ignored.
 
 ## Normalization
 
@@ -33,7 +33,7 @@ For each CSV:
 
 ## Faculty submission-status check
 
-Before generating student sheets, active checked rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. In activity mode those are non-housing program rows joined against the faculty contacts CSV. In housing mode those are housing rows joined against the RA contacts CSV. Each grouped program/housing group gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
+Before generating student sheets, active checked rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. In activity mode those are non-housing program rows joined against the faculty contacts CSV. In housing mode those are housing rows grouped by housing program; if an optional RA contacts CSV is uploaded, contact info is joined onto the group, otherwise no RA contact info is shown. Each grouped program/housing group gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
 
 ## Attendance modes
 
@@ -69,7 +69,7 @@ For each attendance row that needs a check:
 - Pull house/room from the matching housing row.
 - Pull gender, student phone, parent/guardian details, and all enrolled programs from matching activity rows.
 - If a yesterday housing CSV was uploaded, match yesterday's housing attendance by external ID, with participant name as a fallback. If it was omitted, the generated sheets omit yesterday housing-check fields.
-- Match faculty contacts by current activity/program in activity mode; match RA contacts by the current housing check program in housing mode.
+- Match faculty contacts by current activity/program in activity mode. In housing mode, match RA contacts by the current housing check program only if an RA contacts CSV was uploaded; otherwise omit the RA contact section without warning.
 - Find roommates by same residence hall plus room base. The room base is the normalized room number after dropping a final bed suffix when present, so `EIS-0316A` and `EIS-0316B` match. This restores the stable old behavior while still using residence hall to avoid cross-building matches. Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
 
 ## Complexity
