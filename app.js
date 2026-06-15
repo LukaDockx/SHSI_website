@@ -494,9 +494,9 @@
         // student's own housing and roommate lookup will necessarily fail too.
         const dbHousing = database.records.filter((record) => hasHousingInfo(record) || houses.has(canonProgram(record.__program)));
         const dbActivity = database.records.filter((record) => hasActivityInfo(record) && !houses.has(canonProgram(record.__program)));
-        const dbHousingById = groupById(dbHousing, 23);
-        const dbActivityById = groupById(dbActivity, 23);
-        const dbAnyById = groupById(database.records, 23);
+        const dbHousingById = groupById(dbHousing, 22);
+        const dbActivityById = groupById(dbActivity, 22);
+        const dbAnyById = groupById(database.records, 22);
         const studentPhoneById = buildStudentPhoneById(database.records);
         const yesterdayById = groupById(yesterday.records, 8);
         const yesterdayByName = groupBy(yesterday.records, (record) => cleanCell(get(record, ["Participant", "Name"], 0)).toLowerCase());
@@ -746,13 +746,13 @@
             .filter((candidate) => {
             if (candidate === context.housingRow)
                 return false;
-            const candidateId = participantExternalId(candidate, 23);
+            const candidateId = participantExternalId(candidate, 22);
             if (candidateId && context.selfId && candidateId === context.selfId)
                 return false;
             return residenceHallKey(houseOf(candidate)) === selfHallKey && roomBaseKey(roomOf(candidate)) === selfRoomBase;
         })
             .filter((candidate) => {
-            const id = participantExternalId(candidate, 23);
+            const id = participantExternalId(candidate, 22);
             const key = id || `${fullNameFromDatabase(candidate).toLowerCase()}|${roomBaseKey(roomOf(candidate))}`;
             if (seen.has(key))
                 return false;
@@ -760,7 +760,7 @@
             return true;
         })
             .map((candidate) => {
-            const id = participantExternalId(candidate, 23);
+            const id = participantExternalId(candidate, 22);
             const activityRows = context.dbActivityById.get(id) || [];
             const activity = activityRows[0] || null;
             const allRows = context.dbAnyById && id ? (context.dbAnyById.get(id) || []) : [];
@@ -826,10 +826,12 @@
         return {
             firstName: cleanCell(get(row, ["Parent/guardian 2 information: First name", "Parent 2 first name", "P2 firstname", "P2 first name", "Guardian 2 first name"], 12)),
             lastName: cleanCell(get(row, ["Parent/guardian 2 information: Last name", "Parent 2 last name", "P2 lastname", "P2 last name", "Guardian 2 last name"], 13)),
-            email: cleanCell(get(row, ["Parent/guardian 2 information: Email address", "Parent 2 email", "P2 email", "Guardian 2 email"], 14)),
-            relationship: cleanCell(get(row, ["Parent/guardian 2 information: Relationship", "Parent 2 relationship", "P2 rel", "Guardian 2 relationship"], 15)),
-            language: cleanCell(get(row, ["Parent/guardian 2 information: Parent/guardian primary language", "Parent 2 language", "Guardian 2 language"], 17)),
-            phone: phoneLike(get(row, ["Parent/guardian 2 information: Parent/guardian cell phone", "Parent 2 phone", "P2 phone", "Guardian 2 phone"], 16))
+            // Session 2 removed the Parent/guardian 2 email column. This field is
+            // intentionally blank so column 14 is not misread as an email address.
+            email: "",
+            relationship: cleanCell(get(row, ["Parent/guardian 2 information: Relationship", "Parent 2 relationship", "P2 rel", "Guardian 2 relationship"], 14)),
+            language: cleanCell(get(row, ["Parent/guardian 2 information: Parent/guardian primary language", "Parent 2 language", "Guardian 2 language"], 16)),
+            phone: phoneLike(get(row, ["Parent/guardian 2 information: Parent/guardian cell phone", "Parent 2 phone", "P2 phone", "Guardian 2 phone"], 15))
         };
     }
     function yesterdayInfo(row) {
@@ -870,10 +872,8 @@
         const direct = cleanCell(get(record, ["Program", "Enrolled Program", "Activity", "Class"], undefined));
         if (direct)
             return direct;
-        // Attendance exports have Program at column 4; the registration database
-        // example has Program at column 18.  Use source-aware fallback positions so
-        // a missing/misdetected header cannot accidentally read Schedule or another
-        // column and produce bogus program names like ", Jun 1, ...".
+        // Attendance exports have Program at column 4. The Session 2 registration
+        // database has Program at column 18 after removing Parent/guardian 2 email.
         const source = cleanCell(record && record.__sourceLabel).toLowerCase();
         if (source.includes("attendance") || source.includes("housing"))
             return cleanCell(get(record, [], 4));
@@ -895,7 +895,7 @@
         const map = new Map();
         // First pass: housing rows usually carry Participant information: Student cell phone.
         for (const record of records || []) {
-            const id = participantExternalId(record, 23);
+            const id = participantExternalId(record, 22);
             if (!id || map.has(id))
                 continue;
             const phone = phoneLike(firstNonBlank(record, ["Participant information: Student cell phone"], undefined));
@@ -904,7 +904,7 @@
         }
         // Second pass: activity rows usually carry Contact information: Student’s phone number.
         for (const record of records || []) {
-            const id = participantExternalId(record, 23);
+            const id = participantExternalId(record, 22);
             if (!id || map.has(id))
                 continue;
             const phone = phoneLike(firstNonBlank(record, [
@@ -920,7 +920,7 @@
         }
         // Final fallback: any recognized student phone field on any row.
         for (const record of records || []) {
-            const id = participantExternalId(record, 23);
+            const id = participantExternalId(record, 22);
             if (!id || map.has(id))
                 continue;
             const phone = studentPhoneOf(record);

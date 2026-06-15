@@ -72,6 +72,10 @@ For each attendance row that needs a check:
 - Match faculty contacts by current activity/program in activity mode. In housing mode, match RA contacts by the current housing check program only if an RA contacts CSV was uploaded; otherwise omit the RA contact section without warning.
 - Find roommates by same residence hall plus room base. The room base is the normalized room number after dropping a final bed suffix when present, so `EIS-0316A` and `EIS-0316B` match. This restores the stable old behavior while still using residence hall to avoid cross-building matches. Roommate check status is then resolved from today's attendance rows instead of using the old undifferentiated `Present or checked out` label.
 
+## Registration database session variants
+
+Session 2 removed `Parent/guardian 2 information: Email address` from the registration database. The app now targets the Session 2 layout. Header-based matching is preferred; positional fallbacks use the Session 2 positions for Parent/guardian 2 relationship/phone/language and Pacific ID / Program / Participant ID / Participant external ID. Parent/guardian 2 email is not used in the printed sheet and remains blank.
+
 ## Complexity
 
 For `n` today's rows, `m` database rows, `y` yesterday rows, and `f` faculty rows:
