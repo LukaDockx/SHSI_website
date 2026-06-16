@@ -505,12 +505,17 @@
     const todayHousingById = groupById(todayHousing, 8);
     const roommateStatusById = isHousingMode ? todayHousingById : todayActivityById;
 
+    // Submission-status review is about whether staff entered an Attendance
+    // Status, independent of the student's Jumbula check-in/check-out state.
+    // Therefore checked-out and not-checked-in rows still appear in Step 2 if
+    // their Attendance Status cell is blank. Sheet generation remains more
+    // conservative below and excludes those inactive rows.
+    const unspecified = rowsToCheck.filter((record) => !cleanCell(get(record, ["Attendance Status"], 3)));
+
     let activeToday = rowsToCheck.filter((record) => {
       const status = cleanCell(get(record, ["Status"], 2));
       return status !== "Checked out" && status !== "Not checked in";
     });
-
-    const unspecified = activeToday.filter((record) => !cleanCell(get(record, ["Attendance Status"], 3)));
     const suppressedUnsubmittedProgramKeys = new Set(options.suppressedUnsubmittedProgramKeys || []);
     activeToday = activeToday.filter((record) => {
       const attendance = cleanCell(get(record, ["Attendance Status"], 3));

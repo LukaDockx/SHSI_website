@@ -33,7 +33,7 @@ For each CSV:
 
 ## Faculty submission-status check
 
-Before generating student sheets, active checked rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name. In activity mode those are non-housing program rows joined against the faculty contacts CSV. In housing mode those are housing rows grouped by housing program; if an optional RA contacts CSV is uploaded, contact info is joined onto the group, otherwise no RA contact info is shown. Each grouped program/housing group gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
+Before generating student sheets, checked-mode rows with blank or whitespace-only `Attendance Status` values are grouped by normalized program name regardless of Jumbula `Status`, so `Checked out` and `Not checked in` rows still appear in the submission review if attendance was not submitted. In activity mode those are non-housing program rows joined against the faculty contacts CSV. In housing mode those are housing rows grouped by housing program; if an optional RA contacts CSV is uploaded, contact info is joined onto the group, otherwise no RA contact info is shown. Each grouped program/housing group gets a checkbox. Checked groups keep their blank rows eligible for sheet generation; unchecked groups are treated as all present, so those blank rows are excluded from the printed check sheets. Non-blank absence statuses are not suppressed by this override.
 
 ## Attendance modes
 
